@@ -1,0 +1,43 @@
+# Cursor / IDE
+.cursor/
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Dependencies
+**/node_modules/
+**/vendor/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Env & secrets
+**/.env
+**/.env.*
+!**/.env.example
+**/auth.json
+
+# Build / cache
+**/dist/
+**/dist-ssr/
+**/public/build/
+**/public/hot/
+**/public/storage
+**/.phpunit.cache
+**/phpunit.result.cache
+*.log
+
+# Laravel storage (keep placeholders via backend .gitignore)
+Back-end-clinica/storage/pail
+Back-end-clinica/storage/*.key
+
+# Local / large binaries
+*.xlsx
+*.zip
+*.rar

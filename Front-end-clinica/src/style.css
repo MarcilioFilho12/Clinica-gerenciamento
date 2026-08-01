@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  text-decoration: inherit;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  
+  
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+.card {
+  padding: 2em;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Tema claro sempre aplicado */
+:root {
+  color: #213547;
+  background-color: #ffffff;
+}
+
+@font-face {
+  font-family: 'SourceCodePro';
+  src: url('../src/fonts/SourceCodePro-Regular.ttf') format('ttf');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'ProximaNova';
+  src: url('../src/fonts/ProximaNova-Regular.otf') format('otf');
+  font-weight: 400;
+  font-style: normal;
+}
+
+.font-paragraf {
+  font-family: 'ProximaNova', sans-serif;
+  font-weight: 400;
+}
+
+.font-titulo {
+  font-family: 'SourceCodePro', sans-serif;
+  font-weight: 400;
+}
+
+
+/* Footer */
+.footer {
+  background-color: var(--color-gray-light);
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.social-icons a {
+  color: var(--color-blue-petrol);
+  font-size: 1.5rem;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.social-icons a:hover {
+  color: #045175;
+  transform: translateY(-5px);
+}
+
+.copyright {
+  color: var(--color-blue-petrol);
+  font-size: 0.9rem;
+}
+
+.verdeMusgo {
+  color: #045175;
+}
+
+.verdeMusgo:hover {
+  color: #045175;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Scrollbar personalizada global */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #6d92e8 #f1f1f1;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #c1dde9;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #0676a6;
+}
+
+/* Ocultar scrollbar apenas no sidebar */
+aside {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+aside nav {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE e Edge */
+}
+
+aside nav::-webkit-scrollbar {
+  display: none !important; /* Chrome, Safari e Opera */
+}
