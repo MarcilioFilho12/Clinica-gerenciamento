@@ -8,12 +8,7 @@
       ]" class="mb-8">
       <template #actions>
         <div class="flex items-center space-x-4">
-          <button 
-            @click="abrirTelao"
-            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center space-x-2 text-sm font-medium">
-            <Monitor class="w-4 h-4" />
-            <span>Painel de Chamada</span>
-          </button>
+          <!-- Telão off no soft launch (G0.2) -->
           <div class="text-sm text-gray-600">
             <span class="font-medium">{{ pacientesNaFila }}</span> pacientes aguardando
           </div>
@@ -436,7 +431,7 @@
         
         <div class="flex items-center space-x-2 text-sm text-gray-600">
           <Info class="w-4 h-4 text-blue-500" />
-          <span>O paciente será marcado como "em atendimento" e aparecerá no telão de chamadas.</span>
+          <span>O paciente será marcado como "em atendimento".</span>
         </div>
       </div>
     </ActionModal>
@@ -449,7 +444,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import {
   Users, UserCheck, CheckCircle, AlertCircle, Search, Plus,
-  RefreshCw, Phone, Timer, FileText, MessageSquare, History, Edit, X, Info, Monitor
+  RefreshCw, Phone, Timer, FileText, MessageSquare, History, Edit, X, Info
 } from 'lucide-vue-next'
 import { toastSuccess, toastError, toastWarning, toastInfo } from '../../composables/useToast.js';
 import axios from '../../services/axios.js';
@@ -473,8 +468,7 @@ export default {
     History,
     Edit,
     X,
-    Info,
-    Monitor
+    Info
   },
   data() {
     return {
@@ -1021,10 +1015,6 @@ export default {
       await this.carregarFilaEspera();
       await this.carregarEstatisticas();
       toastInfo('Fila atualizada');
-    },
-    abrirTelao() {
-      const url = window.location.origin + '/consultas/telao-chamada';
-      window.open(url, '_blank', 'width=1920,height=1080');
     }
   }
 }

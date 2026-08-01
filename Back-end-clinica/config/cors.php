@@ -1,25 +1,23 @@
 <?php
 
+$corsOrigins = env('CORS_ALLOWED_ORIGINS', '*');
+
+if ($corsOrigins === '*' || $corsOrigins === null || $corsOrigins === '') {
+    $allowedOrigins = ['*'];
+} else {
+    $allowedOrigins = array_values(array_filter(array_map(
+        static fn (string $o): string => trim($o),
+        explode(',', (string) $corsOrigins)
+    )));
+}
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
-    */
-
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => $allowedOrigins,
 
     'allowed_origins_patterns' => [],
 

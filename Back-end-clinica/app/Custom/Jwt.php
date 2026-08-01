@@ -38,10 +38,17 @@ class Jwt
         ];
     }
 
+    public static function ttlSeconds(): int
+    {
+        $ttl = (int) config('jwt.ttl_seconds', 60 * 60 * 4);
+
+        return max(300, $ttl); // mínimo 5 minutos
+    }
+
     public static function create(User $user): string
     {
         $payload = [
-            'exp' => time() + 60 * 60 * 24,
+            'exp' => time() + self::ttlSeconds(),
             'iat' => time(),
             'data' => self::claimsFromUser($user),
         ];

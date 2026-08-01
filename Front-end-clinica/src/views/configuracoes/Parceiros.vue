@@ -805,7 +805,7 @@ const carregarParceiros = async () => {
       }
     } else if (error.request) {
       // Erro de conexão
-      erro.value = 'Erro de conexão. Verifique sua internet e se o backend está rodando em http://localhost:8000'
+      erro.value = 'Erro de conexão. Verifique se a API está no ar (VITE_API_URL / backend).'
     } else {
       erro.value = 'Erro inesperado. Tente novamente.'
     }

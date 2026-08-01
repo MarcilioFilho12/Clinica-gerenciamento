@@ -1,6 +1,6 @@
 # AGENTS.md — Marag Clínica
 
-Instruções para qualquer agente de IA trabalhando neste repositório.
+Instruções para qualquer agente de IA neste repositório.
 
 ## Idioma
 
@@ -9,75 +9,79 @@ Instruções para qualquer agente de IA trabalhando neste repositório.
 
 ## Paths reais
 
-- Backend Laravel: `Back-end-clinica/paulinho-marcilio-back-main/paulinho-marcilio-back-main`
-- Frontend Vue: `Front-end-clinica/paulinho-marcilio-front-main/paulinho-marcilio-front-main`
-- Nunca rodar `composer` / `artisan` / `yarn` uma pasta acima desses paths
+- Backend Laravel: `Back-end-clinica/`
+- Frontend Vue: `Front-end-clinica/`
+- Rodar `composer` / `artisan` / `npm|yarn` **dentro** desses paths
+
+## Comitê Técnico (review / deploy)
+
+Regras em `.cursor/rules/` — playbook: [`docs/COMITE_TECNICO.md`](docs/COMITE_TECNICO.md).
+
+- Orquestrador sempre ativo (`00-orquestrador.mdc`)
+- Deploy / Railway / clínica real → acionar **Release Manager** (`release.mdc`)
+- Item **CRÍTICO** ⇒ código **não** está pronto
 
 ## Produto
 
-- Marca do software: **Marag**
-- Domínio: clínica **oftalmológica** (não generalizar para hospital/genérico sem pedido)
-- Escopo atual: **multi-tenant** (Fase 4): banco central + 1 DB por clínica
-- Isolamento: **não** usar `clinic_id` nas tabelas de negócio — o tenant é o database
-- Branding: Marag no login/©; nome/logo/cores por clínica (white-label)
+- Marca: **Marag**
+- Domínio: clínica **oftalmológica**
+- Multi-tenant: banco central (`marag_central`) + 1 DB por clínica
+- Isolamento: **não** usar `clinic_id` nas tabelas de negócio
+- Branding: Marag no login/©; nome/logo/cores por clínica
 
 ## Prioridade de trabalho
 
-1. Segurança (JWT endurecido, rotas autenticadas, interceptor front)
-2. Núcleo clínico (agenda, pacientes, ficha, fila, telão)
-3. Financeiro + relatórios reais
-4. Multi-tenant + white-label
-
-Não pular fases sem confirmação do usuário.
+1. Segurança (JWT, rate limit, sem leak de erros, uploads seguros)
+2. Núcleo clínico (agenda, pacientes, ficha, fila)
+3. Financeiro real (consulta paga + despesas)
+4. Deploy piloto (Railway) + observabilidade mínima
+5. SaaS (subdomínio, billing, painel Marag) — depois do piloto estável
 
 ## Decisões travadas
 
-- Auth: **manter JWT** e endurecer (não migrar para Sanctum agora)
-- Tenant: header `X-Clinic-Slug` / JWT `clinic_slug`; provisionar com `clinic:provision`
-- Branding: Marag no login; white-label via `/configuracoes/marca`
-- Perguntar ao usuário antes de decisões de produto, auth alternativa ou destruição de dados
+- Auth: **JWT** endurecido (não Sanctum agora)
+- Tenant: `X-Clinic-Slug` / JWT `clinic_slug`; `php artisan clinic:provision`
+- Perguntar ao usuário antes de trocar auth, destruir dados ou mudar modelo de tenant
 
 ## Segurança (obrigatório)
 
-- Não deixar rotas de negócio públicas
-- Não colocar hash de senha / User completo no payload JWT
-- Não commitar `.env` com secrets
-- Não sugerir `migrate:fresh` / `migrate:refresh` em banco com dados
-- Mensagens de erro de API: profissionais (sem gíria)
+- Rotas de negócio autenticadas
+- Claims JWT mínimas (nunca password)
+- Não commitar `.env`
+- Não sugerir `migrate:fresh` com dados de clínica
+- Mensagens de erro profissionais (sem stack/SQL ao cliente)
+- Logs sem CPF/dados clínicos desnecessários
 
 ## Backend (Laravel)
 
-- Controllers magros; validação em Form Request quando criar/editar endpoints
-- Preferir Eloquent + migrations versionadas
-- Status de consulta/usuário: evitar IDs mágicos soltos; preferir enums/constantes nomeadas
-- Evento de chamada (`PacienteChamado`) + Reverb para telão
+- Controllers magros; Form Request em endpoints novos
+- Eloquent + migrations versionadas (central vs tenant)
+- Evento `PacienteChamado` + Reverb (telão opcional no piloto)
 
 ## Frontend (Vue)
 
-- Usar `src/services/axios.js` (não axios “solto” com URL errada)
-- Token Bearer via interceptor (Fase 1)
-- Sem mocks em módulos que já têm API
-- Branding: Marag no login/©; white-label dinâmico na clínica (Fase 4)
+- Só `src/services/axios.js`
+- `VITE_API_URL` em produção (nunca hardcode localhost em build de prod)
+- Bearer + slug no interceptor; Pinia auth/clinic
 
 ## Comandos locais úteis
 
 ```powershell
-# API
-cd "Back-end-clinica\paulinho-marcilio-back-main\paulinho-marcilio-back-main"
+cd "Back-end-clinica"
+php artisan marag:doctor --fix   # repara public/storage se path antigo quebrou
 php artisan serve
 
-# Front
-cd "Front-end-clinica\paulinho-marcilio-front-main\paulinho-marcilio-front-main"
+cd "Front-end-clinica"
 npm run dev
 
-# Telão
+# Telão (opcional)
+cd "Back-end-clinica"
 php artisan reverb:start
 ```
 
 ## Quando perguntar ao usuário
 
-- Troca de estratégia de auth
-- Multi-tenant / white-label antecipado
-- Apagar dados, reset de banco, force push
-- Integrações externas (WhatsApp, TISS, pagamento)
-- Mudança de marca ou domínio clínico
+- Troca de estratégia de auth ou tenant
+- Deploy com dados reais / LGPD
+- Escopo fora do piloto
+- Qualquer operação destrutiva de banco

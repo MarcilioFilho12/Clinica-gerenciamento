@@ -31,6 +31,13 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // situacao_id 1 = ativo (mesma tabela situacoes)
+        if ((int) $user->situacao_id !== 1) {
+            return response()->json([
+                'message' => 'Usuário inativo. Contate o administrador da clínica.',
+            ], 403);
+        }
+
         $token = Jwt::create($user);
 
         return response()->json([
@@ -55,7 +62,7 @@ class AuthController extends Controller
     {
         $dados = $request->validate([
             'senha_atual' => ['required', 'string'],
-            'senha_nova' => ['required', 'string', 'min:6'],
+            'senha_nova' => ['required', 'string', 'min:8'],
         ]);
 
         $user = $request->user();

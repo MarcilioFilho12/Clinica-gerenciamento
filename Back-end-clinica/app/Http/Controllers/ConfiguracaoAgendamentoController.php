@@ -220,10 +220,12 @@ class ConfiguracaoAgendamentoController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
-                'mensagem' => 'Erro ao criar configuração: ' . $e->getMessage()
+                'mensagem' => 'Erro ao criar configuração'
             ], 500);
         }
     }
@@ -343,10 +345,12 @@ class ConfiguracaoAgendamentoController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
-                'mensagem' => 'Erro ao atualizar configuração: ' . $e->getMessage()
+                'mensagem' => 'Erro ao atualizar configuração'
             ], 500);
         }
     }

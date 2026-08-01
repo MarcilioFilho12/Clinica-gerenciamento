@@ -26,8 +26,8 @@ Laravel API (:8000/api)
 
 Paths de código:
 
-- Back: `Back-end-clinica/paulinho-marcilio-back-main/paulinho-marcilio-back-main`
-- Front: `Front-end-clinica/paulinho-marcilio-front-main/paulinho-marcilio-front-main`
+- Back: `Back-end-clinica/`
+- Front: `Front-end-clinica/`
 
 ---
 

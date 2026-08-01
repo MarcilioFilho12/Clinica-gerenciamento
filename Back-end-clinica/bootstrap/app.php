@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Railway / proxies reversos (HTTPS + IP real) — PRG Fase 2
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'jwt' => \App\Http\Middleware\JwtAuthenticate::class,
             'profile' => \App\Http\Middleware\EnsureUserProfile::class,

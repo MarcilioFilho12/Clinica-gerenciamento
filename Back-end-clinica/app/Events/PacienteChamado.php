@@ -16,43 +16,34 @@ class PacienteChamado implements ShouldBroadcastNow
 
     public $consulta;
 
-    /**
-     * Create a new event instance.
-     */
     public function __construct($consulta)
     {
-        Log::info('[DEBUG] PacienteChamado - construtor chamado', [
-            'consulta_id' => $consulta->id ?? 'N/A',
+        // PRG 1.4: sem PII nos logs — só IDs
+        Log::info('PacienteChamado.dispatch', [
+            'consulta_id' => $consulta->id ?? null,
+            'clinic_slug' => TenantContext::slug(),
         ]);
         $this->consulta = $consulta;
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     */
     public function broadcastOn(): Channel
     {
         $slug = TenantContext::slug() ?: 'default';
-        $canal = 'chamadas.pacientes.'.$slug;
-        Log::info('[DEBUG] PacienteChamado - broadcastOn() chamado', ['canal' => $canal]);
 
-        return new Channel($canal);
+        return new Channel('chamadas.pacientes.'.$slug);
     }
 
-    /**
-     * Nome do evento que será ouvido no frontend
-     */
     public function broadcastAs(): string
     {
         return 'paciente.chamado';
     }
 
     /**
-     * Dados que serão transmitidos
+     * Payload do telão (mínimo necessário na sala). Não logar este array.
      */
     public function broadcastWith(): array
     {
-        $dados = [
+        return [
             'id' => $this->consulta->id,
             'paciente' => [
                 'id' => $this->consulta->paciente_id,
@@ -66,14 +57,5 @@ class PacienteChamado implements ShouldBroadcastNow
             'horario_chamada' => now()->format('H:i'),
             'data_chamada' => now()->format('Y-m-d H:i:s'),
         ];
-
-        Log::info('[DEBUG] Evento PacienteChamado - dados para broadcast', [
-            'canal' => 'chamadas.pacientes.'.(TenantContext::slug() ?: 'default'),
-            'evento' => 'paciente.chamado',
-            'dados' => $dados,
-        ]);
-
-        return $dados;
     }
 }
-

@@ -6,7 +6,7 @@ SPA do painel Marag (agenda, pacientes, ficha, fila, financeiro UI, configs).
 
 Execute comandos **nesta pasta** (onde está o `package.json`):
 
-`Front-end-clinica/paulinho-marcilio-front-main/paulinho-marcilio-front-main`
+`Front-end-clinica/`
 
 ## Quick start
 
@@ -16,9 +16,21 @@ npm run dev
 ```
 
 - App: `http://localhost:5173`
-- API esperada: `http://localhost:8000/api` (`src/services/axios.js`)
+- API: `VITE_API_URL` (padrão em `src/services/axios.js`)
 
-Docs do monorepo: [README raiz](../../../README.md) · [SETUP](../../../docs/SETUP.md)
+Templates:
+
+- `.env.example` — desenvolvimento  
+- `.env.production.example` — staging/prod (obrigatório definir `VITE_API_URL` no build)
+
+```powershell
+# Staging/prod
+$env:VITE_API_URL="https://sua-api.up.railway.app/api"
+npm run build:check-env
+npm run build
+```
+
+Deploy: [docs/DEPLOY_RAILWAY.md](../docs/DEPLOY_RAILWAY.md)
 
 ## Telão
 
@@ -26,5 +38,5 @@ Rota `/consultas/telao-chamada` — requer Reverb no backend (`php artisan rever
 
 ## Notas
 
-- Alguns módulos (dashboard, financeiro, relatórios) ainda usam mock — ver roadmap Fase 2–3
+- Piloto: algumas rotas (modelos, inadimplentes, etc.) redirecionam para Home
 - Requisitos de produto legados: `listaToDo.mdx`, `instructions.mdx`

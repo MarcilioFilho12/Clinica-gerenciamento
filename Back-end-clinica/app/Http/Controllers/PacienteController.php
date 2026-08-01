@@ -69,11 +69,12 @@ class PacienteController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -259,11 +260,12 @@ class PacienteController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -301,10 +303,11 @@ class PacienteController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -337,10 +340,11 @@ class PacienteController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -481,11 +485,12 @@ class PacienteController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -529,10 +534,11 @@ class PacienteController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -599,11 +605,12 @@ class PacienteController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }

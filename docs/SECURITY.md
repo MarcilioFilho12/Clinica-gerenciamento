@@ -1,32 +1,37 @@
 # Segurança — Marag
 
-## Baseline atual (dívida conhecida)
+## Estado atual (PRG Fase 1 — código)
 
-- Rotas de negócio em `routes/api.php` majoritariamente **sem** middleware de auth
-- JWT custom em `App\Custom\Jwt` via `JWT_KEY`
-- Front sem interceptor Bearer automático
-- Mensagens de auth informais no controller (corrigir na Fase 1)
+- Rotas de negócio: middlewares `clinic` + `jwt` + `profile`
+- Login: `POST /api/auth` com `throttle:login` (5/min por e-mail+IP)
+- JWT: claims mínimas (`id`, `name`, `email`, `profile_id`, `clinic_slug`) — **nunca** password
+- TTL JWT: `JWT_TTL_SECONDS` (default **2 horas** no piloto, mínimo 5 min)
+- Erros 500: **sem** `$e->getMessage()` no JSON; `report($e)` no servidor
+- Upload logo: jpeg/jpg/png/gif/webp — **sem SVG**
+- Logs de chamada: só IDs / slug (sem nome de paciente)
+- `DEFAULT_CLINIC_SLUG`: **ignorado em `production`**
 
-## Alvo Fase 1 (P0)
+## Produção (obrigatório)
 
-1. Middleware JWT em todas as rotas de negócio (exceto login público e, se necessário, telão)
-2. Payload JWT mínimo: `id`, `name`, `email`, `profile_id` — **nunca** password
-3. Axios: `Authorization: Bearer <token>` + logout em 401
-4. RBAC básico por `profile_id` (admin / recepção / médico)
-5. `.env.example` com `JWT_KEY`, DB, Reverb — sem valores secretos reais
-6. Respostas 401/403 profissionais
+```env
+APP_ENV=production
+APP_DEBUG=false
+JWT_KEY=...   # forte, único
+JWT_TTL_SECONDS=7200
+# NÃO definir DEFAULT_CLINIC_SLUG em production
+```
 
-## Boas práticas contínuas
+## Boas práticas
 
 - Secrets só em `.env` / vault
-- Validação server-side obrigatória
-- Soft deletes já existem em User — manter consistência
-- Logs sem CPF/dados clínicos em plain text desnecessário
-- LGPD: minimizar exposição em impressão e APIs de listagem
+- Validação server-side
+- Soft deletes em User
+- Logs sem CPF/dados clínicos
+- LGPD: minimizar exposição em impressão e listagens
 
 ## Proibido
 
 - Commitar `.env`
-- `migrate:fresh` em produção ou banco com dados de clínica
-- Endpoints de delete em massa sem auth
-- Broadcast sensível em canal público sem necessidade (revisar telão)
+- `migrate:fresh` com dados de clínica
+- Delete em massa sem auth
+- Expandir canal público do telão sem revisão Security/LGPD

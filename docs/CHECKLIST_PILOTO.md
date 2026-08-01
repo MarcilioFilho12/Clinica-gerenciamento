@@ -10,7 +10,11 @@ Escopo: **1 clínica**, fluxo clínico + caixa básico. Telas pesadas/fora do pi
 - [ ] API Laravel: `php artisan serve` (`:8000`)
 - [ ] Front Vite: `npm run dev` (`:5173`)
 - [ ] Reverb (se testar telão): `php artisan reverb:start` (`:8080`)
-- [ ] `APP_URL=http://localhost:8000` e `php artisan storage:link` (logo)
+- [ ] Staging: API no Railway + front com `VITE_API_URL` (ver `docs/DEPLOY_RAILWAY.md`)
+- [ ] `APP_ENV=production` · `APP_DEBUG=false` · sem `DEFAULT_CLINIC_SLUG`
+- [ ] `php artisan marag:doctor --fix` no deploy
+- [ ] Backup + 1 restore testado (`docs/RUNBOOK_INCIDENTES.md`)
+- [ ] `APP_URL=http://localhost:8000` (local) **ou** https da API (staging) + storage link
 - [ ] Login com slug da clínica + usuário admin
 
 **Credenciais demo típicas:** slug `demo` · `admin@demo.local` / `password`

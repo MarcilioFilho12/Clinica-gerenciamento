@@ -21,12 +21,19 @@ class ProvisionClinicCommand extends Command
 
     public function handle(ClinicProvisioner $provisioner): int
     {
+        $adminPassword = (string) $this->option('admin-password');
+        if (strlen($adminPassword) < 8 || $adminPassword === 'password') {
+            $this->error('Use --admin-password com no mínimo 8 caracteres e diferente de "password".');
+
+            return self::FAILURE;
+        }
+
         try {
             $clinic = $provisioner->provision(
                 (string) $this->argument('slug'),
                 (string) $this->argument('nome'),
                 (string) $this->option('admin-email'),
-                (string) $this->option('admin-password'),
+                $adminPassword,
                 (string) $this->option('admin-name'),
                 (string) $this->option('cor-primaria'),
                 (string) $this->option('cor-secundaria'),

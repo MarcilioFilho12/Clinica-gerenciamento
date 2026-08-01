@@ -19,7 +19,10 @@ class ClinicController extends Controller
         $slug = strtolower(trim((string) ($request->query('slug') ?: $request->header('X-Clinic-Slug') ?: '')));
 
         if ($slug === '') {
-            $slug = strtolower(trim((string) env('DEFAULT_CLINIC_SLUG', '')));
+            // PRG 1.5: DEFAULT_CLINIC_SLUG apenas fora de production
+            if (! app()->environment('production')) {
+                $slug = strtolower(trim((string) env('DEFAULT_CLINIC_SLUG', '')));
+            }
         }
 
         if ($slug === '') {
@@ -97,7 +100,7 @@ class ClinicController extends Controller
     {
         try {
             $request->validate([
-                'logo' => 'required|image|mimes:jpeg,jpg,png,gif,webp,svg|max:2048',
+                'logo' => 'required|image|mimes:jpeg,jpg,png,gif,webp|max:2048',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -118,7 +121,8 @@ class ClinicController extends Controller
         $this->deleteStoredLogo($clinic);
 
         $path = $request->file('logo')->store('clinic-logos/'.$clinic->slug, 'public');
-        $url = rtrim($request->getSchemeAndHttpHost(), '/').'/storage/'.$path;
+        // URL estável via APP_URL + disco public (exige public/storage saudável — marag:doctor)
+        $url = Storage::disk('public')->url($path);
 
         $clinic->logo_url = $url;
         $clinic->save();

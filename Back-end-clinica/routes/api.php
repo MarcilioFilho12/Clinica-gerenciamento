@@ -14,9 +14,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('clinic/branding', [ClinicController::class, 'branding']);
 
 Route::middleware('clinic')->group(function () {
-    Route::post('/auth', [AuthController::class, 'auth']);
+    Route::post('/auth', [AuthController::class, 'auth'])
+        ->middleware('throttle:login');
 
-    Route::middleware('jwt')->group(function () {
+    Route::middleware(['jwt', 'throttle:api'])->group(function () {
         Route::get('/auth/verify', [AuthController::class, 'verify']);
         Route::put('/auth/senha', [AuthController::class, 'changePassword']);
 

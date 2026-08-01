@@ -883,8 +883,8 @@ const alterarSenhaAdmin = async () => {
 
   if (!senhaAdmin.value.nova) {
     erros.value.senhaNova = 'Nova senha é obrigatória'
-  } else if (senhaAdmin.value.nova.length < 6) {
-    erros.value.senhaNova = 'Nova senha deve ter pelo menos 6 caracteres'
+  } else if (senhaAdmin.value.nova.length < 8) {
+    erros.value.senhaNova = 'Nova senha deve ter pelo menos 8 caracteres'
   }
 
   if (!senhaAdmin.value.confirmar) {

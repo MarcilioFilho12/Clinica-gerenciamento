@@ -1,11 +1,12 @@
 {
-  "name": "paulinho-marcilio-front",
+  "name": "marag-front",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:check-env": "node -e \"if(!process.env.VITE_API_URL){console.error('Defina VITE_API_URL antes do build de staging/prod'); process.exit(1)}\"",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -7,10 +7,13 @@ use App\Models\Consulta;
 use App\Models\ConfiguracoesAgendamento;
 use App\Models\User;
 use App\Events\PacienteChamado;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class ConsultaController extends Controller
 {
@@ -124,10 +127,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -203,10 +207,11 @@ class ConsultaController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -236,69 +241,76 @@ class ConsultaController extends Controller
 
             $configuracaoId = null;
 
-            if (! $historico) {
-                // Obter configuração ativa para a data
-                $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
-                    $request->user_id,
-                    $request->data
-                );
+            try {
+                $consulta = DB::transaction(function () use ($request, $historico, &$configuracaoId) {
+                    if (! $historico) {
+                        $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
+                            $request->user_id,
+                            $request->data
+                        );
 
-                if (! $configuracao) {
-                    return response()->json([
+                        if (! $configuracao) {
+                            throw new RuntimeException('SEM_CONFIG');
+                        }
+
+                        if (! $this->validarHorario($request, $configuracao)) {
+                            throw new RuntimeException('HORARIO_INVALIDO');
+                        }
+
+                        if ($this->verificarConflitoHorario(
+                            $request->user_id,
+                            $request->data,
+                            $request->horario_inicio,
+                            $request->horario_fim,
+                            null,
+                            true
+                        )) {
+                            throw new RuntimeException('HORARIO_OCUPADO');
+                        }
+
+                        $configuracaoId = $configuracao->id;
+                    } else {
+                        $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
+                            $request->user_id,
+                            $request->data
+                        );
+                        $configuracaoId = $configuracao?->id;
+                    }
+
+                    return Consulta::create([
+                        'user_id' => $request->user_id,
+                        'paciente_id' => $request->paciente_id ?: null,
+                        'procedimento' => $request->procedimento,
+                        'data' => $request->data,
+                        'horario_inicio' => $request->horario_inicio,
+                        'horario_fim' => $request->horario_fim,
+                        'prioridade' => $request->prioridade ?? 'normal',
+                        'parceiro_id' => $request->parceiro_id,
+                        'observacoes' => $request->observacoes,
+                        'pago' => (bool) $request->boolean('pago'),
+                        'forma_pagamento' => $request->boolean('pago') ? $request->forma_pagamento : null,
+                        'valor' => $request->valor,
+                        'situacao_id' => $historico ? 4 : 1,
+                        'configuracao_id' => $configuracaoId,
+                    ]);
+                });
+            } catch (RuntimeException $e) {
+                return match ($e->getMessage()) {
+                    'SEM_CONFIG' => response()->json([
                         'success' => false,
                         'message' => 'Nenhuma configuração de agendamento encontrada para esta data.',
-                    ], 400);
-                }
-
-                // Validar se o horário está dentro da configuração
-                if (! $this->validarHorario($request, $configuracao)) {
-                    return response()->json([
+                    ], 400),
+                    'HORARIO_INVALIDO' => response()->json([
                         'success' => false,
                         'message' => 'Horário não disponível conforme configuração de agendamento.',
-                    ], 400);
-                }
-
-                // Verificar conflito de horário
-                if ($this->verificarConflitoHorario(
-                    $request->user_id,
-                    $request->data,
-                    $request->horario_inicio,
-                    $request->horario_fim,
-                    null
-                )) {
-                    return response()->json([
+                    ], 400),
+                    'HORARIO_OCUPADO' => response()->json([
                         'success' => false,
                         'message' => 'Horário já ocupado para este profissional',
-                    ], 422);
-                }
-
-                $configuracaoId = $configuracao->id;
-            } else {
-                // Histórico: tenta vincular config se existir, sem bloquear
-                $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
-                    $request->user_id,
-                    $request->data
-                );
-                $configuracaoId = $configuracao?->id;
+                    ], 422),
+                    default => throw $e,
+                };
             }
-
-            $consulta = Consulta::create([
-                'user_id' => $request->user_id,
-                'paciente_id' => $request->paciente_id ?: null,
-                'procedimento' => $request->procedimento,
-                'data' => $request->data,
-                'horario_inicio' => $request->horario_inicio,
-                'horario_fim' => $request->horario_fim,
-                'prioridade' => $request->prioridade ?? 'normal',
-                'parceiro_id' => $request->parceiro_id,
-                'observacoes' => $request->observacoes,
-                'pago' => (bool) $request->boolean('pago'),
-                'forma_pagamento' => $request->boolean('pago') ? $request->forma_pagamento : null,
-                'valor' => $request->valor,
-                // Histórico entra como encerrada; agenda normal como agendada
-                'situacao_id' => $historico ? 4 : 1,
-                'configuracao_id' => $configuracaoId,
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -316,10 +328,11 @@ class ConsultaController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -381,10 +394,11 @@ class ConsultaController extends Controller
                 'data' => $consulta
             ]);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Consulta não encontrada',
-                'error' => $e->getMessage()
             ], 404);
         }
     }
@@ -432,71 +446,90 @@ class ConsultaController extends Controller
 
             $camposHorarioAlterados = $dataAlterada || $horarioInicioAlterado || $horarioFimAlterado || $profissionalAlterado;
 
-            // Se está alterando data/horário/profissional, validar com configuração
-            // ⚠️ IMPORTANTE: Consultas de prioridade "alta" (urgências) ignoram validações de horário
-            if ($camposHorarioAlterados && $prioridade !== 'alta') {
-                $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva($userId, $data);
-
-                if (!$configuracao) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Nenhuma configuração de agendamento encontrada para esta data.'
-                    ], 400);
-                }
-
-                if (!$this->validarHorario($request, $configuracao)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Horário não disponível conforme configuração de agendamento.'
-                    ], 400);
-                }
-
-                // Verificar conflito de horário (excluindo a própria consulta)
-                if ($this->verificarConflitoHorario(
+            try {
+                $consulta = DB::transaction(function () use (
+                    $request,
+                    $consulta,
                     $userId,
                     $data,
-                    $request->horario_inicio ?? $consulta->horario_inicio->format('H:i'),
-                    $request->horario_fim ?? $consulta->horario_fim->format('H:i'),
+                    $prioridade,
+                    $camposHorarioAlterados,
                     $id
-                )) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Horário já ocupado para este profissional'
-                    ], 422);
-                }
+                ) {
+                    // Lock da linha atual evita corrida em update concorrente
+                    $consulta = Consulta::whereKey($consulta->id)->lockForUpdate()->firstOrFail();
 
-                // Atualizar configuracao_id se necessário
-                $request->merge(['configuracao_id' => $configuracao->id]);
-            } elseif ($prioridade === 'alta') {
-                // Para consultas de prioridade alta, não validar horário mas ainda pode precisar de configuracao_id
-                // Se houver configuração, usar ela, senão deixar null (encaixe/urgência)
-                if ($request->has('data') || $request->has('user_id')) {
-                    $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva($userId, $data);
-                    if ($configuracao) {
+                    if ($camposHorarioAlterados && $prioridade !== 'alta') {
+                        $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva($userId, $data);
+
+                        if (! $configuracao) {
+                            throw new RuntimeException('SEM_CONFIG');
+                        }
+
+                        if (! $this->validarHorario($request, $configuracao)) {
+                            throw new RuntimeException('HORARIO_INVALIDO');
+                        }
+
+                        if ($this->verificarConflitoHorario(
+                            $userId,
+                            $data,
+                            $request->horario_inicio ?? $consulta->horario_inicio->format('H:i'),
+                            $request->horario_fim ?? $consulta->horario_fim->format('H:i'),
+                            $id,
+                            true
+                        )) {
+                            throw new RuntimeException('HORARIO_OCUPADO');
+                        }
+
                         $request->merge(['configuracao_id' => $configuracao->id]);
+                    } elseif ($prioridade === 'alta') {
+                        if ($request->has('data') || $request->has('user_id')) {
+                            $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva($userId, $data);
+                            if ($configuracao) {
+                                $request->merge(['configuracao_id' => $configuracao->id]);
+                            }
+                        }
                     }
-                }
+
+                    $dados = $request->only([
+                        'user_id', 'paciente_id', 'procedimento', 'data',
+                        'horario_inicio', 'horario_fim', 'prioridade', 'parceiro_id',
+                        'observacoes', 'pago', 'forma_pagamento', 'valor',
+                        'situacao_id', 'motivo_cancelamento', 'configuracao_id',
+                    ]);
+
+                    if (array_key_exists('paciente_id', $dados) && ($dados['paciente_id'] === '' || $dados['paciente_id'] === null)) {
+                        $dados['paciente_id'] = null;
+                    }
+
+                    if (array_key_exists('pago', $dados)) {
+                        $dados['pago'] = (bool) $request->boolean('pago');
+                        if (! $dados['pago']) {
+                            $dados['forma_pagamento'] = null;
+                        }
+                    }
+
+                    $consulta->update($dados);
+
+                    return $consulta;
+                });
+            } catch (RuntimeException $e) {
+                return match ($e->getMessage()) {
+                    'SEM_CONFIG' => response()->json([
+                        'success' => false,
+                        'message' => 'Nenhuma configuração de agendamento encontrada para esta data.',
+                    ], 400),
+                    'HORARIO_INVALIDO' => response()->json([
+                        'success' => false,
+                        'message' => 'Horário não disponível conforme configuração de agendamento.',
+                    ], 400),
+                    'HORARIO_OCUPADO' => response()->json([
+                        'success' => false,
+                        'message' => 'Horário já ocupado para este profissional',
+                    ], 422),
+                    default => throw $e,
+                };
             }
-
-            $dados = $request->only([
-                'user_id', 'paciente_id', 'procedimento', 'data',
-                'horario_inicio', 'horario_fim', 'prioridade', 'parceiro_id',
-                'observacoes', 'pago', 'forma_pagamento', 'valor',
-                'situacao_id', 'motivo_cancelamento', 'configuracao_id',
-            ]);
-
-            if (array_key_exists('paciente_id', $dados) && ($dados['paciente_id'] === '' || $dados['paciente_id'] === null)) {
-                $dados['paciente_id'] = null;
-            }
-
-            if (array_key_exists('pago', $dados)) {
-                $dados['pago'] = (bool) $request->boolean('pago');
-                if (! $dados['pago']) {
-                    $dados['forma_pagamento'] = null;
-                }
-            }
-
-            $consulta->update($dados);
 
             return response()->json([
                 'success' => true,
@@ -510,10 +543,11 @@ class ConsultaController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -570,10 +604,11 @@ class ConsultaController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao listar agenda do período',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -591,10 +626,11 @@ class ConsultaController extends Controller
                 'message' => 'Consulta excluída com sucesso!'
             ]);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao excluir consulta',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -625,10 +661,11 @@ class ConsultaController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao cancelar consulta',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -648,10 +685,11 @@ class ConsultaController extends Controller
                 'data' => $consulta->load('paciente', 'parceiro', 'situacao')
             ]);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao confirmar consulta',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -682,10 +720,11 @@ class ConsultaController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao finalizar consulta',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -925,12 +964,20 @@ class ConsultaController extends Controller
     }
 
     /**
-     * Verifica se há conflito de horário
+     * Verifica se há conflito de horário (exclui encerrada/cancelada).
+     * Com $forUpdate=true, usa lock dentro de transação para evitar double-book.
      */
-    private function verificarConflitoHorario($userId, $data, $horarioInicio, $horarioFim, $excludeId = null): bool
-    {
+    private function verificarConflitoHorario(
+        $userId,
+        $data,
+        $horarioInicio,
+        $horarioFim,
+        $excludeId = null,
+        bool $forUpdate = false
+    ): bool {
         $query = Consulta::where('user_id', $userId)
                         ->where('data', $data)
+                        ->whereNotIn('situacao_id', [4, 5]) // encerrada, cancelada
                         ->where(function ($q) use ($horarioInicio, $horarioFim) {
                             $q->whereBetween('horario_inicio', [$horarioInicio, $horarioFim])
                               ->orWhereBetween('horario_fim', [$horarioInicio, $horarioFim])
@@ -942,6 +989,10 @@ class ConsultaController extends Controller
 
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
+        }
+
+        if ($forUpdate) {
+            $query->lockForUpdate();
         }
 
         return $query->exists();
@@ -993,7 +1044,9 @@ class ConsultaController extends Controller
                             $horaChegada = Carbon::parse($consulta->horario_inicio)->format('H:i');
                         }
                     } catch (\Exception $e) {
-                        // Em caso de erro, usar horário atual
+            report($e);
+
+            // Em caso de erro, usar horário atual
                         $horaChegada = Carbon::now()->format('H:i');
                     }
                 }
@@ -1025,10 +1078,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar fila de espera',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1048,14 +1102,13 @@ class ConsultaController extends Controller
 
             // Disparar evento de broadcast
             $consultaCarregada = $consulta->load(['paciente', 'user']);
-            Log::info('[DEBUG] Disparando evento PacienteChamado', [
+            Log::info('PacienteChamado disparado', [
                 'consulta_id' => $consultaCarregada->id,
-                'paciente_nome' => $consultaCarregada->paciente->nome ?? 'N/A',
-                'profissional_nome' => $consultaCarregada->user->name ?? 'N/A',
-                'codigo_chegada' => $consultaCarregada->codigo_chegada ?? 'N/A',
+                'clinic_slug' => TenantContext::slug(),
+                'profissional_id' => $consultaCarregada->user_id,
+                'tem_codigo_chegada' => filled($consultaCarregada->codigo_chegada),
             ]);
             event(new PacienteChamado($consultaCarregada));
-            Log::info('[DEBUG] Evento PacienteChamado disparado com sucesso');
 
             return response()->json([
                 'success' => true,
@@ -1067,14 +1120,14 @@ class ConsultaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Consulta não encontrada',
-                'error' => $e->getMessage()
             ], 404);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao chamar paciente',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1113,14 +1166,14 @@ class ConsultaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Consulta não encontrada',
-                'error' => $e->getMessage()
             ], 404);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao confirmar chegada',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1190,10 +1243,11 @@ class ConsultaController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao adicionar paciente à fila',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1268,7 +1322,9 @@ class ConsultaController extends Controller
                         // Calcular diferença em minutos entre agora e a chegada
                         return now()->diffInMinutes($chegada);
                     } catch (\Exception $e) {
-                        // Se houver erro no parse, retornar 0 (não afeta a média significativamente)
+            report($e);
+
+            // Se houver erro no parse, retornar 0 (não afeta a média significativamente)
                         return 0;
                     }
                 });
@@ -1286,10 +1342,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar estatísticas',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1339,7 +1396,9 @@ class ConsultaController extends Controller
                             $tempoFormatado = $tempoEmAtendimento . 'min';
                         }
                     } catch (\Exception $e) {
-                        // Em caso de erro, manter valores padrão
+            report($e);
+
+            // Em caso de erro, manter valores padrão
                         $tempoFormatado = '0min';
                     }
                 }
@@ -1354,7 +1413,9 @@ class ConsultaController extends Controller
                             $horarioFormatado = Carbon::parse($consulta->horario_inicio)->format('H:i');
                         }
                     } catch (\Exception $e) {
-                        $horarioFormatado = 'N/A';
+            report($e);
+
+            $horarioFormatado = 'N/A';
                     }
                 }
 
@@ -1380,10 +1441,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar pacientes em atendimento',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1416,7 +1478,9 @@ class ConsultaController extends Controller
                             $horarioFormatado = Carbon::parse($consulta->horario_inicio)->format('H:i');
                         }
                     } catch (\Exception $e) {
-                        $horarioFormatado = 'N/A';
+            report($e);
+
+            $horarioFormatado = 'N/A';
                     }
                 }
 
@@ -1430,7 +1494,9 @@ class ConsultaController extends Controller
                             $horarioFimFormatado = Carbon::parse($consulta->horario_fim)->format('H:i');
                         }
                     } catch (\Exception $e) {
-                        $horarioFimFormatado = 'N/A';
+            report($e);
+
+            $horarioFimFormatado = 'N/A';
                     }
                 }
 
@@ -1465,10 +1531,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar consultas do paciente',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -1502,7 +1569,9 @@ class ConsultaController extends Controller
                         $horarioInicioFormatado = Carbon::parse($consulta->horario_inicio)->format('H:i');
                     }
                 } catch (\Exception $e) {
-                    $horarioInicioFormatado = 'N/A';
+            report($e);
+
+            $horarioInicioFormatado = 'N/A';
                 }
             }
 
@@ -1516,7 +1585,9 @@ class ConsultaController extends Controller
                         $horarioFimFormatado = Carbon::parse($consulta->horario_fim)->format('H:i');
                     }
                 } catch (\Exception $e) {
-                    $horarioFimFormatado = 'N/A';
+            report($e);
+
+            $horarioFimFormatado = 'N/A';
                 }
             }
 
@@ -1603,10 +1674,11 @@ class ConsultaController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar detalhes da consulta',
-                'error' => $e->getMessage()
             ], 404);
         }
     }
@@ -1662,10 +1734,11 @@ class ConsultaController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao encerrar consulta',
-                'error' => $e->getMessage()
             ], 500);
         }
     }

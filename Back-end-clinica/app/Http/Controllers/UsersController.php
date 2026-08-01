@@ -34,10 +34,11 @@ class UsersController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -51,7 +52,7 @@ class UsersController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email|max:255',
-                'password' => 'required|string|min:6',
+                'password' => 'required|string|min:8',
                 'profile_id' => 'nullable|exists:auth_profiles,id',
                 'situacao_id' => 'nullable|exists:situacoes,id',
             ]);
@@ -86,11 +87,12 @@ class UsersController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -117,10 +119,11 @@ class UsersController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -145,7 +148,7 @@ class UsersController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email,' . $id . '|max:255',
-                'password' => 'nullable|string|min:6',
+                'password' => 'nullable|string|min:8',
                 'profile_id' => 'nullable|exists:auth_profiles,id',
                 'situacao_id' => 'nullable|exists:situacoes,id',
             ]);
@@ -188,11 +191,12 @@ class UsersController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
+            report($e);
+
             DB::rollback();
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -230,10 +234,11 @@ class UsersController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor',
-                'error' => $e->getMessage()
             ], 500);
         }
     }

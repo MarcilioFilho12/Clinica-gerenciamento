@@ -1,7 +1,14 @@
 import axios from "axios";
 
+const apiUrl = import.meta.env.VITE_API_URL;
+if (import.meta.env.PROD && !apiUrl) {
+  throw new Error(
+    "VITE_API_URL é obrigatória no build de produção/staging (ex.: https://api.exemplo.com/api)"
+  );
+}
+
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: apiUrl || "http://localhost:8000/api",
   headers: {
     "Content-type": "application/json",
   },

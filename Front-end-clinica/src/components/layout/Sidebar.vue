@@ -141,7 +141,7 @@ import { useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.js';
 import {
   Calendar, Users, ChevronDown, User, Search, FileText,
-  Stethoscope, CheckCircle, Clock, DollarSign, Eye, CreditCard,
+  Stethoscope, Clock, DollarSign, Eye,
   FileBarChart, TrendingUp, Gift, AlertTriangle, Settings,
   CalendarDays, Handshake, Wrench, Layout, Menu, Home
 } from 'lucide-vue-next';
@@ -209,14 +209,7 @@ const allMenuItems = [
     icon: Stethoscope,
     profiles: ALL,
     children: [
-      {
-        id: 'consultas-atendidas',
-        label: 'Consultas Atendidas',
-        icon: CheckCircle,
-        to: '/consultas/atendidas',
-        pageKey: 'consultas-atendidas',
-        profiles: ALL,
-      },
+      // Piloto: Consultas Atendidas oculta (sem API real)
       {
         id: 'consultas-fila',
         label: 'Fila de Espera',
@@ -241,14 +234,7 @@ const allMenuItems = [
         pageKey: 'financeiro-visao-geral',
         profiles: STAFF,
       },
-      {
-        id: 'financeiro-atendimentos',
-        label: 'Atendimentos',
-        icon: CreditCard,
-        to: '/financeiro/atendimentos',
-        pageKey: 'financeiro-atendimentos',
-        profiles: STAFF,
-      }
+      // Piloto: Atendimentos financeiro oculto (tela incompleta)
     ]
   },
   {

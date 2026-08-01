@@ -352,7 +352,8 @@ const traduzirErro = (mensagem) => {
     'The email field is required.': 'O campo e-mail é obrigatório.',
     'The name field is required.': 'O campo nome é obrigatório.',
     'The password field is required.': 'O campo senha é obrigatório.',
-    'The password must be at least 6 characters.': 'A senha deve ter pelo menos 6 caracteres.',
+    'The password must be at least 6 characters.': 'A senha deve ter pelo menos 8 caracteres.',
+    'The password must be at least 8 characters.': 'A senha deve ter pelo menos 8 caracteres.',
     'The profile id must exist.': 'O perfil selecionado é inválido.',
     'The situacao id must exist.': 'A situação selecionada é inválida.'
   }
@@ -377,8 +378,8 @@ const validarUsuario = (dados, isEdicao = false) => {
   if (!isEdicao) {
     if (!dados.senha?.trim()) {
       erros.push("Senha é obrigatória")
-    } else if (dados.senha.length < 6) {
-      erros.push("Senha deve ter pelo menos 6 caracteres")
+    } else if (dados.senha.length < 8) {
+      erros.push("Senha deve ter pelo menos 8 caracteres")
     }
 
     if (!dados.confirmarSenha?.trim()) {
@@ -644,8 +645,8 @@ const validarFormulario = () => {
     if (!form.senha.trim()) {
       errors.senha = 'Senha é obrigatória'
       isValid = false
-    } else if (form.senha.length < 6) {
-      errors.senha = 'Senha deve ter pelo menos 6 caracteres'
+    } else if (form.senha.length < 8) {
+      errors.senha = 'Senha deve ter pelo menos 8 caracteres'
       isValid = false
     }
 

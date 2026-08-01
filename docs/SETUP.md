@@ -16,13 +16,13 @@ Guia de instalação e subida do ambiente. Uso do dia a dia: [MANUAL_USUARIO.md]
 
 ## 1. Backend
 
-Path:
-
-`Back-end-clinica/paulinho-marcilio-back-main/paulinho-marcilio-back-main`
+Path: `Back-end-clinica/` (onde está o `artisan`)
 
 ```powershell
-cd "Back-end-clinica\paulinho-marcilio-back-main\paulinho-marcilio-back-main"
+cd "Back-end-clinica"
 composer install --prefer-dist
+php artisan storage:link --force
+# ou: php artisan marag:doctor
 ```
 
 ### 1.1 Arquivo `.env`
@@ -48,10 +48,14 @@ CENTRAL_DB_PASSWORD=sua_senha
 
 DEFAULT_CLINIC_SLUG=demo
 
+# JWT (PRG 1.6 — default 4h se omitido)
+JWT_TTL_SECONDS=14400
+
 BROADCAST_DRIVER=reverb
 # REVERB_* conforme env.mdx
 ```
 
+> Em **production**: não defina `DEFAULT_CLINIC_SLUG` (PRG 1.5). Informe sempre o slug no login / header.
 > `DB_DATABASE` no `.env` é só default; em runtime o tenant **troca** o database para `marag_clinic_{slug}`.
 
 ### 1.2 Banco central
@@ -96,24 +100,23 @@ php artisan reverb:start
 
 ## 2. Frontend
 
-Path:
-
-`Front-end-clinica/paulinho-marcilio-front-main/paulinho-marcilio-front-main`
+Path: `Front-end-clinica/` (onde está o `package.json`)
 
 ```powershell
-cd "Front-end-clinica\paulinho-marcilio-front-main\paulinho-marcilio-front-main"
+cd "Front-end-clinica"
 npm install
 npm run dev
 ```
 
-Opcional — `.env` no front:
+Opcional — `.env` / `.env.local` no front:
 
 ```env
+VITE_API_URL=http://localhost:8000/api
 VITE_CLINIC_SLUG=demo
 ```
 
 App: `http://localhost:5173`  
-Axios: `http://localhost:8000/api` + header `X-Clinic-Slug`
+Axios: `VITE_API_URL` (default local `http://localhost:8000/api`) + header `X-Clinic-Slug`
 
 ---
 
@@ -137,7 +140,9 @@ Telão:
 
 | Problema | Verificação |
 |----------|-------------|
-| Composer / path longo | Usar `--prefer-dist`; path do projeto sem pasta “zip” duplicada errada |
+| Logo `/storage/...` 404 | `php artisan marag:doctor` (recria `public/storage` se apontar path antigo) |
+| Path / pasta aninhada | Código fica em `Back-end-clinica/` e `Front-end-clinica/` — **sem** `paulinho-marcilio-*` |
+| Composer / path longo | Usar `--prefer-dist` |
 | Extensão zip PHP | Habilitar `extension=zip` no `php.ini` |
 | MySQL parado | Serviços → MySQL80 |
 | 400 “informe a clínica” | Slug no login / `VITE_CLINIC_SLUG` |
@@ -151,6 +156,9 @@ Telão:
 ## 5. Comandos úteis
 
 ```powershell
+# Saúde do ambiente (storage link, paths)
+php artisan marag:doctor
+
 # Rotas API
 php artisan route:list --path=api
 

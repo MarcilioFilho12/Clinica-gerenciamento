@@ -90,10 +90,11 @@ class FinanceiroController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar resumo financeiro',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -160,10 +161,11 @@ class FinanceiroController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao carregar relatório financeiro',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -194,10 +196,11 @@ class FinanceiroController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao listar despesas',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -220,10 +223,11 @@ class FinanceiroController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao registrar despesa',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -252,10 +256,11 @@ class FinanceiroController extends Controller
                 'message' => 'Despesa não encontrada',
             ], 404);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao atualizar despesa',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -276,10 +281,11 @@ class FinanceiroController extends Controller
                 'message' => 'Despesa não encontrada',
             ], 404);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao excluir despesa',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }

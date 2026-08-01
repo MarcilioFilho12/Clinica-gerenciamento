@@ -65,7 +65,12 @@ class ResolveClinicTenant
         }
 
         $fallback = env('DEFAULT_CLINIC_SLUG');
-        if (is_string($fallback) && $fallback !== '') {
+        // PRG 1.5: fallback só em local/testing — em production exige header/query/JWT
+        if (
+            is_string($fallback)
+            && $fallback !== ''
+            && ! app()->environment('production')
+        ) {
             return strtolower(trim($fallback));
         }
 

@@ -14,10 +14,7 @@ const ImprimirFichaClinica = () => import("../views/pacientes/ImprimirFichaClini
 const ImprimirRefracaoSubjetivaA5 = () => import("../views/pacientes/ImprimirRefracaoSubjetivaA5.vue");
 const DetalhesPaciente = () => import("../views/pacientes/DetalhesPaciente.vue");
 const DetalhesConsulta = () => import("../views/pacientes/DetalhesConsulta.vue");
-const ConsultasAtendidas = () => import("../views/consultas/ConsultasAtendidas.vue");
 const FilaEspera = () => import("../views/consultas/FilaEspera.vue");
-const TelaoChamada = () => import("../views/consultas/TelaoChamada.vue");
-const Atendimentos = () => import("../views/financeiro/Atendimentos.vue");
 const VisaoGeral = () => import("../views/financeiro/VisaoGeral.vue");
 const Aniversariantes = () => import("../views/relatorios/Aniversariantes.vue");
 const ConsultasVencidas = () => import("../views/relatorios/ConsultasVencidas.vue");
@@ -37,8 +34,9 @@ const STAFF = [P.ADMIN, P.RECEPCAO];
 const ADMIN = [P.ADMIN];
 
 /**
- * Piloto: rotas fora do escopo redirecionam para /home
- * (Modelos, Inadimplentes, Permissões, Fluxo Diário, Relatório Consultas mock)
+ * Piloto soft launch: rotas fora do escopo / incompletas → /home
+ * (Modelos, Inadimplentes, Permissões, Fluxo Diário, Relatório Consultas,
+ *  Consultas Atendidas, Atendimentos financeiro, Telão — G0.2 off)
  */
 const pilotoRedirect = { path: "/home" };
 
@@ -59,10 +57,10 @@ const routes = [
       { path: "/pacientes/ficha-clinica/:id", component: FichaClinica, meta: { auth: true, profiles: ALL } },
       { path: "/pacientes/detalhes/:idPaciente/ficha-clinica/:idFichaClinica/visualizar", component: VisualizarFichaClinica, meta: { auth: true, profiles: ALL } },
       { path: "/pacientes/detalhes/:idPaciente/ficha-clinica/:idFichaClinica", component: FichaClinica, meta: { auth: true, profiles: ALL } },
-      { path: "/consultas/atendidas", component: ConsultasAtendidas, meta: { auth: true, profiles: ALL } },
+      { path: "/consultas/atendidas", redirect: pilotoRedirect },
       { path: "/consultas/fila-espera", component: FilaEspera, meta: { auth: true, profiles: ALL } },
       { path: "/consultas/fluxo-diario", redirect: pilotoRedirect },
-      { path: "/financeiro/atendimentos", component: Atendimentos, meta: { auth: true, profiles: STAFF } },
+      { path: "/financeiro/atendimentos", redirect: pilotoRedirect },
       { path: "/financeiro/visao-geral", component: VisaoGeral, meta: { auth: true, profiles: STAFF } },
       { path: "/relatorios/aniversariantes", component: Aniversariantes, meta: { auth: true, profiles: STAFF } },
       { path: "/relatorios/consultas-vencidas", component: ConsultasVencidas, meta: { auth: true, profiles: STAFF } },
@@ -84,7 +82,7 @@ const routes = [
   },
   { path: "/imprimir-ficha-clinica/:id", component: ImprimirFichaClinica, meta: { auth: true, profiles: ALL } },
   { path: "/imprimir-refracao-subjetiva-a5/:id", component: ImprimirRefracaoSubjetivaA5, meta: { auth: true, profiles: ALL } },
-  { path: "/consultas/telao-chamada", component: TelaoChamada, meta: { auth: false } },
+  { path: "/consultas/telao-chamada", redirect: pilotoRedirect },
 ];
 
 const router = createRouter({

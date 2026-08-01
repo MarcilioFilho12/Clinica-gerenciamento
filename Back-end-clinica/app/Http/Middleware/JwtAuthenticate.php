@@ -39,6 +39,12 @@ class JwtAuthenticate
                 ], 401);
             }
 
+            if ((int) $user->situacao_id !== 1) {
+                return response()->json([
+                    'message' => 'Usuário inativo. Contate o administrador da clínica.',
+                ], 403);
+            }
+
             $tokenSlug = isset($decoded->data->clinic_slug)
                 ? strtolower((string) $decoded->data->clinic_slug)
                 : null;

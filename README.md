@@ -22,17 +22,17 @@ SaaS de gestão para clínicas oftalmológicas: agenda, pacientes, ficha clínic
 
 ```
 Clinica Gestão/
-├── Front-end-clinica/.../paulinho-marcilio-front-main/   # SPA Vue
-├── Back-end-clinica/.../paulinho-marcilio-back-main/     # API Laravel
+├── Front-end-clinica/   # SPA Vue
+├── Back-end-clinica/    # API Laravel
 ├── AGENTS.md
-├── docs/                                                # Documentação completa
-└── .cursor/rules/
+├── docs/                # Documentação completa
+└── .cursor/rules/       # Comitê Técnico (Cursor)
 ```
 
 Paths reais do código:
 
-- **Back:** `Back-end-clinica/paulinho-marcilio-back-main/paulinho-marcilio-back-main`
-- **Front:** `Front-end-clinica/paulinho-marcilio-front-main/paulinho-marcilio-front-main`
+- **Back:** `Back-end-clinica/`
+- **Front:** `Front-end-clinica/`
 
 ---
 
@@ -47,6 +47,7 @@ Paths reais do código:
 | **[docs/SETUP.md](docs/SETUP.md)** | Instalação e provisionamento de clínica |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | ADRs e módulos |
 | [docs/SECURITY.md](docs/SECURITY.md) | Segurança |
+| [docs/DEPLOY_RAILWAY.md](docs/DEPLOY_RAILWAY.md) | Staging Railway |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Fases de entrega |
 | [AGENTS.md](AGENTS.md) | Regras para IA / contribuidores |
 
@@ -83,8 +84,9 @@ PHP 8.2+ · Composer · Node 20+ · MySQL 8
 ### Backend
 
 ```powershell
-cd "Back-end-clinica\paulinho-marcilio-back-main\paulinho-marcilio-back-main"
+cd "Back-end-clinica"
 composer install --prefer-dist
+php artisan storage:link --force   # ou: php artisan marag:doctor
 # configurar .env (DB_* + CENTRAL_DB_* + JWT_KEY + APP_KEY)
 php artisan migrate --database=central --path=database/migrations/central --force
 php artisan clinic:provision demo "Clínica Demo" --admin-email=admin@demo.local --admin-password=password
@@ -95,7 +97,7 @@ php artisan serve
 ### Frontend
 
 ```powershell
-cd "Front-end-clinica\paulinho-marcilio-front-main\paulinho-marcilio-front-main"
+cd "Front-end-clinica"
 npm install
 npm run dev
 ```
