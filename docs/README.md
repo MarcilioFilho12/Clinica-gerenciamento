@@ -18,6 +18,7 @@
 |-----------|----------|
 | [SETUP.md](SETUP.md) | Instalação local, MySQL central/tenant, provisionar clínica, Reverb |
 | [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md) | Staging/produção Railway + front static (PRG Fase 2) |
+| [PASSO_A_PASSO_DEPLOY.md](PASSO_A_PASSO_DEPLOY.md) | Checklist clicável: Railway + MySQL + Vercel (você no painel) |
 | [RUNBOOK_INCIDENTES.md](RUNBOOK_INCIDENTES.md) | API/DB down, rollback, backup/restore |
 | [FUNCIONAMENTO_TECNICO.md](FUNCIONAMENTO_TECNICO.md) | Arquitetura runtime, JWT, multi-DB, fluxos, APIs, telão |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Bounded contexts e ADRs |
@@ -38,4 +39,4 @@
 1. **Operador da clínica** → Manual do usuário → Mensagens de erro  
 2. **TI / setup** → Setup → Funcionamento técnico  
 3. **Desenvolvimento** → Architecture → Security → Roadmap → AGENTS  
-4. **Deploy / piloto** → [PLANO_SOFT_LAUNCH](PLANO_SOFT_LAUNCH.md) → [DEPLOY_RAILWAY](DEPLOY_RAILWAY.md) → Checklist piloto → Runbook → Release Manager
+4. **Deploy / piloto** → [PASSO_A_PASSO_DEPLOY](PASSO_A_PASSO_DEPLOY.md) → [PLANO_SOFT_LAUNCH](PLANO_SOFT_LAUNCH.md) → Checklist piloto → Runbook → Release Manager
