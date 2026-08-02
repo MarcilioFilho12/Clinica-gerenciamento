@@ -51,12 +51,17 @@ php artisan migrate --database=mysql --force
 
 ## 2. Serviço API (Railway)
 
-- **Root Directory:** `Back-end-clinica`
-- **Start command (exemplo):**
+- **Root Directory:** `Back-end-clinica` (obrigatório — monorepo com o front)
+- Builder: **NIXPACKS** + arquivo `Back-end-clinica/nixpacks.toml` (`providers = ["php"]`)
+  - Impede `yarn install` / `yarn build` na API (evita colisão `yarn/LICENSE` vs `composer/LICENSE`)
+  - Front Vue sobe só na **Vercel**
+- **Start command:**
 
 ```bash
-php artisan marag:doctor --fix && php artisan serve --host=0.0.0.0 --port=$PORT
+php artisan serve --host=0.0.0.0 --port=$PORT
 ```
+
+(Opcional após o 1º deploy estável: `php artisan marag:doctor --fix &&` antes do `serve`.)
 
 Variáveis mínimas:
 
@@ -66,24 +71,30 @@ Variáveis mínimas:
 | `APP_DEBUG` | `false` |
 | `APP_KEY` | `php artisan key:generate --show` |
 | `APP_URL` | `https://<api>.up.railway.app` |
-| `JWT_KEY` | string longa aleatória |
-| `JWT_TTL_SECONDS` | `14400` |
+| `JWT_KEY` | string longa aleatória (nunca a do `env.mdx` antigo) |
+| `JWT_TTL_SECONDS` | `7200` |
 | `DB_*` / `CENTRAL_DB_*` | do plugin MySQL |
 | `FILESYSTEM_DISK` | `public` |
-| `CORS_ALLOWED_ORIGINS` | URL https do front (sem `*`) |
+| `CORS_ALLOWED_ORIGINS` | URL https do front Vercel (sem `*`) |
 | `LOG_LEVEL` | `warning` ou `error` |
 
 **Não** definir `DEFAULT_CLINIC_SLUG` em production.
 
 Health check: `GET /up`
 
-Storage logos:
+Storage logos (após o serviço subir):
 
 ```bash
 php artisan marag:doctor --fix
 ```
 
 Em disco efêmero do Railway, logos somem no redeploy — para piloto curto ok; depois use S3/R2.
+
+### Se o build ainda puxar Yarn
+
+1. Confirme que `nixpacks.toml` está no **GitHub** (commit + push).
+2. No painel: Build Command = só `composer install --no-dev --optimize-autoloader --ignore-platform-reqs`
+3. Redeploy.
 
 ## 3. Front (static)
 

@@ -1,9 +1,11 @@
 [build]
 builder = "NIXPACKS"
+# Front (Vite) não entra neste serviço — ver nixpacks.toml (providers = php)
+buildCommand = "composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs"
 
 [deploy]
-# Root Directory no painel Railway = Back-end-clinica
-startCommand = "php artisan marag:doctor --fix && php artisan serve --host=0.0.0.0 --port=$PORT"
+# Painel Railway: Root Directory = Back-end-clinica
+startCommand = "php artisan serve --host=0.0.0.0 --port=$PORT"
 healthcheckPath = "/up"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
