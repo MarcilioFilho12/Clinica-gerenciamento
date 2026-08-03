@@ -34,20 +34,37 @@ class ConsultaController extends Controller
                 ->orderBy('name')
                 ->get();
 
+            // Configuração padrão ativa na data (independente de haver profissionais)
+            $configuracaoPadrao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(null, $data);
+            $configuracaoPayload = $configuracaoPadrao ? [
+                'horario_inicio' => $configuracaoPadrao->horario_inicio->format('H:i'),
+                'horario_fim' => $configuracaoPadrao->horario_fim->format('H:i'),
+                'duracao_consulta' => $configuracaoPadrao->duracao_consulta,
+                'intervalo_consulta' => $configuracaoPadrao->intervalo_consulta,
+                'dia_funcionamento' => true,
+            ] : null;
+
             if ($profissionais->isEmpty()) {
+                $diaSemana = Carbon::parse($data)->dayOfWeek;
+                $dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+                $campoDia = $dias[$diaSemana];
+                if ($configuracaoPayload && $configuracaoPadrao) {
+                    $configuracaoPayload['dia_funcionamento'] = (bool) $configuracaoPadrao->$campoDia;
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Nenhum profissional encontrado',
                     'data' => [
                         'data' => $data,
                         'profissionais' => [],
-                        'configuracao' => null
-                    ]
+                        'configuracao' => $configuracaoPayload,
+                        'tem_configuracao' => $configuracaoPadrao !== null
+                            || ConfiguracoesAgendamento::query()->exists(),
+                    ],
                 ], 200);
             }
 
-            // Obter configuração padrão apenas para informações gerais
-            $configuracaoPadrao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(null, $data);
             $diaSemana = Carbon::parse($data)->dayOfWeek;
             $dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
             $campoDia = $dias[$diaSemana];
@@ -104,9 +121,11 @@ class ConsultaController extends Controller
                             'horario_fim' => $configuracaoPadrao->horario_fim->format('H:i'),
                             'duracao_consulta' => $configuracaoPadrao->duracao_consulta,
                             'intervalo_consulta' => $configuracaoPadrao->intervalo_consulta,
-                            'dia_funcionamento' => false
-                        ] : null
-                    ]
+                            'dia_funcionamento' => false,
+                        ] : null,
+                        'tem_configuracao' => $configuracaoPadrao !== null
+                            || ConfiguracoesAgendamento::query()->exists(),
+                    ],
                 ], 200);
             }
 
@@ -116,14 +135,12 @@ class ConsultaController extends Controller
                 'data' => [
                     'data' => $data,
                     'profissionais' => $profissionaisComHorarios,
-                    'configuracao' => $configuracaoPadrao ? [
-                        'horario_inicio' => $configuracaoPadrao->horario_inicio->format('H:i'),
-                        'horario_fim' => $configuracaoPadrao->horario_fim->format('H:i'),
-                        'duracao_consulta' => $configuracaoPadrao->duracao_consulta,
-                        'intervalo_consulta' => $configuracaoPadrao->intervalo_consulta,
-                        'dia_funcionamento' => true
-                    ] : null
-                ]
+                    'configuracao' => $configuracaoPayload
+                        ? array_merge($configuracaoPayload, ['dia_funcionamento' => true])
+                        : null,
+                    'tem_configuracao' => $configuracaoPadrao !== null
+                        || ConfiguracoesAgendamento::query()->exists(),
+                ],
             ], 200);
 
         } catch (\Exception $e) {

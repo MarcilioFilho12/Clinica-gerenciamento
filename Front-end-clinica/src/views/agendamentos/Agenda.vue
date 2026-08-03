@@ -99,7 +99,7 @@
     </div>
 
     <!-- Mensagem quando não há configuração -->
-    <div v-if="!configuracao && !error && !loading" class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+    <div v-if="mostrarAvisoSemConfiguracao" class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
           <Calendar class="w-5 h-5 text-blue-600" />
@@ -112,6 +112,29 @@
             class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2 font-medium">
             <Plus class="w-4 h-4" />
             <span>Criar Configuração</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configuração existe, mas falta profissional (profile clínico) -->
+    <div v-if="mostrarAvisoSemProfissional" class="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+          <User class="w-5 h-5 text-amber-700" />
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-amber-900">Cadastre um profissional para usar a agenda</h3>
+          <p class="text-amber-800 mt-1 mb-4">
+            Há configuração de horário, mas nenhum usuário com perfil Profissional ativo.
+            Crie o profissional em Configurações → Usuários.
+          </p>
+          <button
+            type="button"
+            @click="$router.push('/configuracoes/usuarios')"
+            class="bg-amber-700 text-white px-4 py-2 rounded-md hover:bg-amber-800 transition-colors flex items-center space-x-2 font-medium">
+            <UserPlus class="w-4 h-4" />
+            <span>Ir para Usuários</span>
           </button>
         </div>
       </div>
@@ -833,6 +856,7 @@ export default {
       profissionais: [],
       agendaData: null,
       configuracao: null,
+      temConfiguracao: null,
       form: {
         doctorId: '',
         patient: '',
@@ -866,6 +890,20 @@ export default {
     }
   },
   computed: {
+    mostrarAvisoSemConfiguracao() {
+      return this.temConfiguracao === false && !this.error && !this.loading
+    },
+    mostrarAvisoSemProfissional() {
+      return (
+        this.temConfiguracao === true &&
+        !this.error &&
+        !this.loading &&
+        this.viewMode === 'dia' &&
+        Array.isArray(this.profissionais) &&
+        this.profissionais.length === 0 &&
+        !!this.configuracao
+      )
+    },
     doctors() {
       const profsToUse = this.showModal ? this.profissionaisModal : this.profissionais
 
@@ -1917,12 +1955,21 @@ export default {
           if (this.selectedDoctor) {
             params.set('user_id', this.selectedDoctor)
           }
-          const response = await axios.get(`/consultas/agenda-periodo?${params.toString()}`)
-          if (response.data.success) {
-            this.periodoConsultas = response.data.data.consultas || []
+          const [periodoRes, diaRes] = await Promise.all([
+            axios.get(`/consultas/agenda-periodo?${params.toString()}`),
+            axios.get(`/consultas?data=${this.selectedDate || inicio}`),
+          ])
+          if (periodoRes.data.success) {
+            this.periodoConsultas = periodoRes.data.data.consultas || []
             this.error = null
           } else {
-            throw new Error(response.data.message || 'Erro ao carregar agenda do período')
+            throw new Error(periodoRes.data.message || 'Erro ao carregar agenda do período')
+          }
+          if (diaRes.data.success) {
+            this.configuracao = diaRes.data.data.configuracao
+            this.temConfiguracao = diaRes.data.data.tem_configuracao
+              ?? !!diaRes.data.data.configuracao
+            this.profissionais = diaRes.data.data.profissionais || []
           }
           return
         }
@@ -1933,6 +1980,8 @@ export default {
           this.agendaData = response.data.data
           this.profissionais = response.data.data.profissionais || []
           this.configuracao = response.data.data.configuracao
+          this.temConfiguracao = response.data.data.tem_configuracao
+            ?? !!response.data.data.configuracao
           this.periodoConsultas = []
         } else {
           throw new Error(response.data.message || 'Erro ao carregar agenda')
@@ -1943,6 +1992,7 @@ export default {
         this.profissionais = []
         this.agendaData = null
         this.configuracao = null
+        this.temConfiguracao = null
         this.periodoConsultas = []
       } finally {
         this.loading = false
