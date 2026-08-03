@@ -243,14 +243,14 @@
                     <Eye class="w-4 h-4" />
                   </button>
                   <button @click="editarConfig(config)"
-                    :disabled="!isConfigAtiva(config) || config.data_fim_vigencia !== null"
+                    :disabled="!podeEditarConfig(config)"
                     class="text-blue-600 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed p-2 rounded hover:bg-blue-50 flex items-center justify-center w-8 h-8"
-                    title="Editar">
+                    :title="podeEditarConfig(config) ? 'Editar' : 'Configurações encerradas não podem ser editadas'">
                     <Edit class="w-4 h-4" />
                   </button>
-                  <button @click="excluirConfig(config)" :disabled="config.padrao"
+                  <button @click="excluirConfig(config)" :disabled="!podeExcluirConfig(config)"
                     class="text-red-600 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed p-2 rounded hover:bg-red-50 flex items-center justify-center w-8 h-8"
-                    title="Excluir">
+                    :title="podeExcluirConfig(config) ? 'Excluir' : 'A configuração padrão vigente não pode ser excluída'">
                     <Trash2 class="w-4 h-4" />
                   </button>
                 </div>
@@ -306,14 +306,14 @@
               <Eye class="w-4 h-4" />
             </button>
             <button @click="editarConfig(config)"
-              :disabled="!isConfigAtiva(config) || config.data_fim_vigencia !== null"
+              :disabled="!podeEditarConfig(config)"
               class="text-blue-600 hover:text-blue-900 disabled:text-gray-400 disabled:cursor-not-allowed p-2 rounded hover:bg-blue-50 flex items-center justify-center w-10 h-10"
-              title="Editar">
+              :title="podeEditarConfig(config) ? 'Editar' : 'Configurações encerradas não podem ser editadas'">
               <Edit class="w-4 h-4" />
             </button>
-            <button @click="excluirConfig(config)" :disabled="config.padrao"
+            <button @click="excluirConfig(config)" :disabled="!podeExcluirConfig(config)"
               class="text-red-600 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed p-2 rounded hover:bg-red-50 flex items-center justify-center w-10 h-10"
-              title="Excluir">
+              :title="podeExcluirConfig(config) ? 'Excluir' : 'A configuração padrão vigente não pode ser excluída'">
               <Trash2 class="w-4 h-4" />
             </button>
           </div>
@@ -633,9 +633,22 @@ const isConfigAtiva = (config) => {
   }
 
   const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
   const dataFim = new Date(config.data_fim_vigencia)
 
-  return dataFim > hoje // Se data_fim_vigencia é no futuro, ainda está ativa
+  return dataFim >= hoje
+}
+
+/** Só a vigente (sem data fim) pode ser editada — gera nova versão no backend */
+const podeEditarConfig = (config) => {
+  return !!config && !config.data_fim_vigencia
+}
+
+/** Padrão vigente não apaga; inativas (histórico) e personalizadas podem */
+const podeExcluirConfig = (config) => {
+  if (!config) return false
+  if (config.padrao && !config.data_fim_vigencia) return false
+  return true
 }
 
 /**
@@ -754,6 +767,11 @@ const abrirModalNovaConfig = () => {
  * Navega para página de edição da configuração
  */
 const editarConfig = (config) => {
+  if (!podeEditarConfig(config)) {
+    mensagemErro.value = 'Só é possível editar a configuração vigente.'
+    limparMensagens()
+    return
+  }
   router.push(`/configuracoes/agendamentos/${config.id}`)
 }
 
@@ -777,6 +795,11 @@ const fecharModalDetalhes = () => {
  * Abre modal de confirmação para excluir configuração
  */
 const excluirConfig = (config) => {
+  if (!podeExcluirConfig(config)) {
+    mensagemErro.value = 'A configuração padrão vigente não pode ser excluída. Crie outra para substituí-la.'
+    limparMensagens()
+    return
+  }
   configuracaoParaExcluir.value = config
   modalExclusaoAberto.value = true
 }
@@ -792,10 +815,16 @@ const confirmarExclusao = async () => {
     // Chama a API para excluir a configuração
     const response = await axios.delete(`/configuracoes-agendamento/${configuracaoParaExcluir.value.id}`)
 
-    // Remove da lista local (assumindo que a exclusão foi bem-sucedida se não houve erro)
-    const index = configuracoes.value.findIndex(c => c.id === configuracaoParaExcluir.value.id)
-    if (index > -1) {
-      configuracoes.value.splice(index, 1)
+    if (response.data?.tipo_acao === 'desativada') {
+      const idx = configuracoes.value.findIndex(c => c.id === configuracaoParaExcluir.value.id)
+      if (idx > -1) {
+        configuracoes.value[idx].data_fim_vigencia = response.data.data_fim_vigencia
+      }
+    } else {
+      const index = configuracoes.value.findIndex(c => c.id === configuracaoParaExcluir.value.id)
+      if (index > -1) {
+        configuracoes.value.splice(index, 1)
+      }
     }
 
     // Atualiza indicadores

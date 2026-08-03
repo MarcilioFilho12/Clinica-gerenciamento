@@ -20,4 +20,4 @@ cmds = [
 cmds = []
 
 [start]
-cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
+cmd = "php artisan marag:doctor --fix && php artisan serve --host=0.0.0.0 --port=$PORT"

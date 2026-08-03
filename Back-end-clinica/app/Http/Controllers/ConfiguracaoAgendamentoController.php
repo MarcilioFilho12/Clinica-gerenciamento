@@ -233,7 +233,27 @@ class ConfiguracaoAgendamentoController extends Controller
     public function show($id)
     {
         $configuracao = ConfiguracoesAgendamento::with('user', 'consultas')->findOrFail($id);
-        return response()->json($configuracao);
+
+        return response()->json([
+            'id' => $configuracao->id,
+            'user_id' => $configuracao->user_id,
+            'user' => $configuracao->user,
+            'seg' => (int) $configuracao->seg,
+            'ter' => (int) $configuracao->ter,
+            'qua' => (int) $configuracao->qua,
+            'qui' => (int) $configuracao->qui,
+            'sex' => (int) $configuracao->sex,
+            'sab' => (int) $configuracao->sab,
+            'dom' => (int) $configuracao->dom,
+            'horario_inicio' => $configuracao->horario_inicio?->format('H:i'),
+            'horario_fim' => $configuracao->horario_fim?->format('H:i'),
+            'duracao_consulta' => $configuracao->duracao_consulta,
+            'intervalo_consulta' => $configuracao->intervalo_consulta,
+            'pausas' => $configuracao->pausas,
+            'data_inicio_vigencia' => $configuracao->data_inicio_vigencia?->format('Y-m-d'),
+            'data_fim_vigencia' => $configuracao->data_fim_vigencia?->format('Y-m-d'),
+            'padrao' => (bool) $configuracao->padrao,
+        ]);
     }
 
     public function update(Request $request, $id)
@@ -359,42 +379,42 @@ class ConfiguracaoAgendamentoController extends Controller
     {
         $configuracao = ConfiguracoesAgendamento::findOrFail($id);
 
-        if ($configuracao->isPadrao()) {
+        // Só bloqueia a configuração padrão que ainda está vigente (sem fim)
+        $padraoVigente = $configuracao->isPadrao() && $configuracao->data_fim_vigencia === null;
+        if ($padraoVigente) {
             return response()->json([
                 'erro' => true,
-                'mensagem' => 'A configuração padrão não pode ser excluída.'
+                'mensagem' => 'A configuração padrão vigente não pode ser excluída. Crie uma nova configuração para substituí-la; depois você pode apagar as antigas.',
             ], 400);
         }
 
         // Verificar se há consultas ativas (situacao_id = 1) com data hoje ou futura
         $consultasAtivas = Consulta::where('configuracao_id', $configuracao->id)
-            ->where('situacao_id', 1) // Situação ativa
-            ->where('data', '>=', now()->format('Y-m-d')) // Data hoje ou futura
+            ->where('situacao_id', 1)
+            ->where('data', '>=', now()->format('Y-m-d'))
             ->get();
 
         if ($consultasAtivas->count() > 0) {
-            // Há consultas ativas futuras - definir data fim de vigência como a data da consulta mais futura
             $dataConsultaMaisFutura = $consultasAtivas->max('data');
 
             $configuracao->update([
-                'data_fim_vigencia' => $dataConsultaMaisFutura
+                'data_fim_vigencia' => $dataConsultaMaisFutura,
             ]);
 
             return response()->json([
                 'success' => true,
                 'mensagem' => "Configuração desativada com sucesso! Há {$consultasAtivas->count()} consulta(s) ativa(s) futura(s). A configuração será válida até {$dataConsultaMaisFutura}.",
                 'tipo_acao' => 'desativada',
-                'data_fim_vigencia' => $dataConsultaMaisFutura
+                'data_fim_vigencia' => $dataConsultaMaisFutura,
             ]);
         }
 
-        // Não há consultas ativas futuras - pode deletar permanentemente
-         $configuracao->delete();
+        $configuracao->delete();
 
         return response()->json([
             'success' => true,
-            'mensagem' => 'Configuração excluída permanentemente com sucesso!',
-            'tipo_acao' => 'excluida'
+            'mensagem' => 'Configuração excluída com sucesso!',
+            'tipo_acao' => 'excluida',
         ]);
     }
 }

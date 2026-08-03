@@ -843,6 +843,22 @@ export default {
     // ===== FUNÇÕES DA API =====
 
     /**
+     * Normaliza horário da API (ISO / H:i:s) para input type="time" (HH:MM)
+     */
+    extrairHora(valor) {
+      if (!valor) return ''
+      if (typeof valor === 'string') {
+        if (valor.includes('T')) {
+          return valor.split('T')[1].substring(0, 5)
+        }
+        if (/^\d{2}:\d{2}/.test(valor)) {
+          return valor.substring(0, 5)
+        }
+      }
+      return String(valor)
+    },
+
+    /**
      * Carrega as configurações de agendamento da API
      */
     async carregarConfiguracoes() {
@@ -857,17 +873,19 @@ export default {
 
           this.configuracoes = {
             user_id: config.user_id,
-            seg: config.seg || false,
-            ter: config.ter || false,
-            qua: config.qua || false,
-            qui: config.qui || false,
-            sex: config.sex || false,
-            sab: config.sab || false,
-            dom: config.dom || false,
-            horario_inicio: config.horario_inicio || '',
-            horario_fim: config.horario_fim || '',
+            seg: !!config.seg,
+            ter: !!config.ter,
+            qua: !!config.qua,
+            qui: !!config.qui,
+            sex: !!config.sex,
+            sab: !!config.sab,
+            dom: !!config.dom,
+            horario_inicio: this.extrairHora(config.horario_inicio),
+            horario_fim: this.extrairHora(config.horario_fim),
             duracao_consulta: (config.duracao_consulta && config.duracao_consulta.toString()) || '',
-            intervalo_consulta: (config.intervalo_consulta && config.intervalo_consulta.toString()) || '',
+            intervalo_consulta: (config.intervalo_consulta !== null && config.intervalo_consulta !== undefined)
+              ? config.intervalo_consulta.toString()
+              : '',
             pausas: config.pausas || []
           }
         } else {

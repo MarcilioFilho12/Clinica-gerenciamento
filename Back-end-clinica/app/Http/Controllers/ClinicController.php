@@ -77,7 +77,7 @@ class ClinicController extends Controller
         try {
             $dados = $request->validate([
                 'nome' => 'sometimes|required|string|max:255',
-                'logo_url' => 'nullable|string|max:2048',
+            'logo_url' => 'nullable|string|max:3000000',
                 'cor_primaria' => ['sometimes', 'required', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
                 'cor_secundaria' => ['sometimes', 'required', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             ]);
@@ -134,9 +134,18 @@ class ClinicController extends Controller
 
         $this->deleteStoredLogo($clinic);
 
-        $path = $request->file('logo')->store('clinic-logos/'.$clinic->slug, 'public');
-        // URL estável via APP_URL + disco public (exige public/storage saudável — marag:doctor)
-        $url = Storage::disk('public')->url($path);
+        $file = $request->file('logo');
+        $binary = file_get_contents($file->getRealPath());
+        if ($binary === false || $binary === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Não foi possível ler o arquivo enviado.',
+            ], 422);
+        }
+
+        // Persistência no banco (data-URI): sobrevive a redeploy no Railway (disco efêmero).
+        $mime = $file->getMimeType() ?: 'image/png';
+        $url = 'data:'.$mime.';base64,'.base64_encode($binary);
 
         $clinic->logo_url = $url;
         $clinic->save();
@@ -176,7 +185,7 @@ class ClinicController extends Controller
     private function deleteStoredLogo(Clinic $clinic): void
     {
         $url = (string) ($clinic->logo_url ?? '');
-        if ($url === '') {
+        if ($url === '' || str_starts_with($url, 'data:')) {
             return;
         }
 

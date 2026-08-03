@@ -5,7 +5,7 @@ buildCommand = "composer install --no-dev --optimize-autoloader --no-interaction
 
 [deploy]
 # Painel Railway: Root Directory = Back-end-clinica
-startCommand = "php artisan serve --host=0.0.0.0 --port=$PORT"
+startCommand = "php artisan marag:doctor --fix && php artisan serve --host=0.0.0.0 --port=$PORT"
 healthcheckPath = "/up"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
