@@ -76,10 +76,37 @@ class MaragDoctorCommand extends Command
             $this->line("✓ APP_URL={$appUrl}");
         }
 
+        $this->ensureCentralLogoColumn();
+
         $this->newLine();
         $this->line($ok ? 'Ambiente OK para logos e paths flat.' : 'Há problemas — corrija antes de testar upload de logo.');
 
         return $ok ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function ensureCentralLogoColumn(): void
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::connection('central')->hasTable('clinics')) {
+                $this->warn('Tabela clinics (central) ainda não existe — rode migrations central.');
+
+                return;
+            }
+
+            $col = \Illuminate\Support\Facades\DB::connection('central')
+                ->selectOne("SHOW COLUMNS FROM clinics WHERE Field = 'logo_url'");
+            $type = strtolower((string) ($col->Type ?? ''));
+            if ($type !== '' && ! str_contains($type, 'text')) {
+                \Illuminate\Support\Facades\DB::connection('central')->statement(
+                    'ALTER TABLE clinics MODIFY logo_url MEDIUMTEXT NULL'
+                );
+                $this->info('✓ clinics.logo_url ampliada para MEDIUMTEXT (logos persistentes)');
+            } else {
+                $this->line('✓ clinics.logo_url ok ('.$type.')');
+            }
+        } catch (\Throwable $e) {
+            $this->warn('Não foi possível verificar/ampliar logo_url: '.$e->getMessage());
+        }
     }
 
     private function storageLinkIsHealthy(string $link, string $target): bool

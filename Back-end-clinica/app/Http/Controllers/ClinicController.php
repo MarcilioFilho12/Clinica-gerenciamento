@@ -109,6 +109,7 @@ class ClinicController extends Controller
 
     /**
      * Upload do logo white-label (admin).
+     * Persiste como data-URI no banco (disco do Railway é efêmero).
      */
     public function uploadLogo(Request $request): JsonResponse
     {
@@ -134,21 +135,32 @@ class ClinicController extends Controller
 
         $this->deleteStoredLogo($clinic);
 
-        $file = $request->file('logo');
-        $binary = file_get_contents($file->getRealPath());
-        if ($binary === false || $binary === '') {
+        try {
+            $this->ensureLogoColumnSupportsDataUri();
+            $url = $this->encodeLogoAsDataUri($request->file('logo'));
+            $clinic->logo_url = $url;
+            $clinic->save();
+        } catch (QueryException $e) {
+            Log::warning('clinic.logo_save_failed', [
+                'clinic_id' => $clinic->id,
+                'sqlstate' => $e->errorInfo[0] ?? null,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Não foi possível ler o arquivo enviado.',
+                'message' => 'Não foi possível salvar o logo no banco. No Shell da API rode: php artisan marag:doctor --fix',
+            ], 503);
+        } catch (\Throwable $e) {
+            Log::warning('clinic.logo_encode_failed', [
+                'clinic_id' => $clinic->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Não foi possível processar a imagem. Use PNG/JPEG até 2 MB.',
             ], 422);
         }
-
-        // Persistência no banco (data-URI): sobrevive a redeploy no Railway (disco efêmero).
-        $mime = $file->getMimeType() ?: 'image/png';
-        $url = 'data:'.$mime.';base64,'.base64_encode($binary);
-
-        $clinic->logo_url = $url;
-        $clinic->save();
 
         return response()->json([
             'success' => true,
@@ -180,6 +192,83 @@ class ClinicController extends Controller
             'message' => 'Logo removido',
             'data' => $clinic->branding(),
         ]);
+    }
+
+    /**
+     * Garante coluna capaz de guardar data-URI (self-heal se migrate não rodou).
+     */
+    private function ensureLogoColumnSupportsDataUri(): void
+    {
+        try {
+            $col = \Illuminate\Support\Facades\DB::connection('central')
+                ->selectOne("SHOW COLUMNS FROM clinics WHERE Field = 'logo_url'");
+            $type = strtolower((string) ($col->Type ?? ''));
+            if ($type === '' || str_contains($type, 'text')) {
+                return;
+            }
+
+            \Illuminate\Support\Facades\DB::connection('central')->statement(
+                'ALTER TABLE clinics MODIFY logo_url MEDIUMTEXT NULL'
+            );
+        } catch (\Throwable $e) {
+            Log::warning('clinic.logo_column_widen_failed', [
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Redimensiona (se GD) e devolve data-URI estável no banco.
+     */
+    private function encodeLogoAsDataUri(\Illuminate\Http\UploadedFile $file): string
+    {
+        $path = $file->getRealPath();
+        if (! is_string($path) || $path === '' || ! is_readable($path)) {
+            throw new \RuntimeException('Arquivo ilegível');
+        }
+
+        $mime = $file->getMimeType() ?: 'image/png';
+        $binary = null;
+
+        if (extension_loaded('gd') && function_exists('imagecreatefromstring')) {
+            $raw = file_get_contents($path);
+            $img = @imagecreatefromstring($raw ?: '');
+            if ($img !== false) {
+                $w = imagesx($img);
+                $h = imagesy($img);
+                $max = 512;
+                if ($w > $max || $h > $max) {
+                    $scale = min($max / max($w, 1), $max / max($h, 1));
+                    $nw = max(1, (int) round($w * $scale));
+                    $nh = max(1, (int) round($h * $scale));
+                    $dst = imagecreatetruecolor($nw, $nh);
+                    imagealphablending($dst, false);
+                    imagesavealpha($dst, true);
+                    $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+                    imagefilledrectangle($dst, 0, 0, $nw, $nh, $transparent);
+                    imagecopyresampled($dst, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+                    imagedestroy($img);
+                    $img = $dst;
+                }
+
+                ob_start();
+                imagepng($img, null, 6);
+                $binary = ob_get_clean();
+                imagedestroy($img);
+                $mime = 'image/png';
+            }
+        }
+
+        if ($binary === null || $binary === false || $binary === '') {
+            $binary = file_get_contents($path);
+        }
+
+        if ($binary === false || $binary === '') {
+            throw new \RuntimeException('Falha ao ler bytes da imagem');
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($binary);
     }
 
     private function deleteStoredLogo(Clinic $clinic): void
