@@ -1,8 +1,15 @@
 # API Laravel no Railway — só PHP (front Vue fica na Vercel).
-# Evita detecção de package.json/yarn.lock e a colisão
-# yarn/LICENSE vs composer/LICENSE no Nixpacks.
+# package.json/yarn.lock no Laravel ainda fazem o Nixpacks puxar Node/Yarn;
+# isso colide LICENSE (yarn vs composer). Prioridade do composer resolve.
 
 providers = ["php"]
+
+[phases.setup]
+nixPkgs = [
+  "...",
+  # https://nixos.org/manual/nixpkgs/stable/#var-meta-priority
+  '(lib.recursiveUpdate php82Packages.composer { meta.priority = (php82Packages.composer.meta.priority or 0) - 1; })',
+]
 
 [phases.install]
 cmds = [
