@@ -121,18 +121,26 @@ Substitua `MySQL` pelo nome real do serviço de banco:
 
 ## Parte 4 — Migrations + clínica piloto
 
-No serviço da API → **Shell** / Console:
+No serviço da API → **Shell** / Console (cria `marag_central` se faltar + migrate + admin):
 
 ```bash
-php artisan migrate --database=central --path=database/migrations/central --force
-php artisan migrate --database=mysql --force
+php artisan marag:bootstrap --provision
+```
+
+Equivalente manual (se preferir):
+
+```bash
+php artisan marag:bootstrap
 php artisan clinic:provision piloto "Clinica Piloto" --admin-email=admin@piloto.local --admin-password="TroqueEstaSenha9" --admin-name="Admin"
 ```
 
-- Senha: **mínimo 8 caracteres**, diferente de `password`.
-- Se `CREATE DATABASE` falhar no provision: os DBs do passo 2 já existem — use o mesmo slug `piloto` / database `marag_clinic_piloto` conforme o provisioner criar o registro central.
+- Senha padrão do `--provision`: `TroqueEstaSenha9` (mín. 8 caracteres, diferente de `password`).
+- Se `CREATE DATABASE` falhar: crie `marag_central` e `marag_clinic_piloto` no MySQL (Parte 2) e rode de novo.
+- **Não** rode só no PC local — tem que ser no Shell do Railway.
 
 Guarde: **slug** `piloto` + e-mail + senha do admin.
+
+**CRÍTICO:** `APP_DEBUG=false` no Railway (senão vaza stack/SQL no JSON).
 
 ---
 

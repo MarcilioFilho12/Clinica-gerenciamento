@@ -6,7 +6,7 @@ if ($corsOrigins === '*' || $corsOrigins === null || $corsOrigins === '') {
     $allowedOrigins = ['*'];
 } else {
     $allowedOrigins = array_values(array_filter(array_map(
-        static fn (string $o): string => trim($o),
+        static fn (string $o): string => rtrim(trim($o), '/'),
         explode(',', (string) $corsOrigins)
     )));
 }

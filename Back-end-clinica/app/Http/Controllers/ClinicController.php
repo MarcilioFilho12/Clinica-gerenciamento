@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Clinic;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -32,10 +34,22 @@ class ClinicController extends Controller
             ], 422);
         }
 
-        $clinic = Clinic::query()
-            ->where('slug', $slug)
-            ->where('ativo', true)
-            ->first();
+        try {
+            $clinic = Clinic::query()
+                ->where('slug', $slug)
+                ->where('ativo', true)
+                ->first();
+        } catch (QueryException $e) {
+            Log::warning('clinic.branding.db_unavailable', [
+                'slug' => $slug,
+                'sqlstate' => $e->errorInfo[0] ?? null,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Serviço temporariamente indisponível. Tente novamente em instantes.',
+            ], 503);
+        }
 
         if (! $clinic) {
             return response()->json([
