@@ -5,7 +5,7 @@ import { createRouter, createWebHistory } from "vue-router";
 const LayoutPainel = () => import("../layouts/LayoutPainel.vue");
 const Login = () => import("../views/Login/Login.vue");
 const Dashboard = () => import("../views/dashboard/Dashboard.vue");
-const Agendamento = () => import("../views/Agendamentos/Agenda.vue");
+const Agendamento = () => import("../views/agendamentos/Agenda.vue");
 const GerenciarPacientes = () => import("../views/pacientes/GerenciarPacientes.vue");
 const CadastroPaciente = () => import("../views/pacientes/CadastroPaciente.vue");
 const FichaClinica = () => import("../views/pacientes/FichaClinica.vue");
