@@ -497,20 +497,36 @@ class PacienteController extends Controller
 
     public function listar(Request $request): JsonResponse
     {
-        $query = Cadastro::query();
+        $query = Cadastro::query()->orderBy('nome');
 
-        // Filtro por busca se o parâmetro search for fornecido
-        if ($request->has('search') && !empty($request->search)) {
-            $searchTerm = $request->search;
-            $query->where('nome', 'LIKE', "%{$searchTerm}%");
+        $searchTerm = trim((string) $request->input('search', ''));
+        if ($searchTerm !== '') {
+            $digits = preg_replace('/\D+/', '', $searchTerm) ?: '';
+
+            $query->where(function ($q) use ($searchTerm, $digits) {
+                $q->where('nome', 'LIKE', "%{$searchTerm}%");
+
+                if (strlen($digits) >= 3) {
+                    $q->orWhere('cpf', 'LIKE', "%{$digits}%")
+                        ->orWhereRaw(
+                            "REPLACE(REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), '/', ''), ' ', '') LIKE ?",
+                            ["%{$digits}%"]
+                        );
+                }
+
+                if (strlen($searchTerm) >= 3) {
+                    $q->orWhere('contato', 'LIKE', "%{$searchTerm}%");
+                }
+            });
         }
 
-        $pacientes = $query->get();
+        $limit = min(50, max(1, (int) $request->input('limit', 20)));
+        $pacientes = $query->limit($limit)->get();
 
         return response()->json([
             'success' => true,
             'message' => 'Pacientes listados com sucesso',
-            'data' => $pacientes
+            'data' => $pacientes,
         ]);
     }
 

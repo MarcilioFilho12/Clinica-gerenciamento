@@ -10,7 +10,7 @@
 
     <!-- Dropdown com sugestões -->
     <div v-if="showDropdown && items.length > 0"
-      class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+      class="absolute z-[200] w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
       <div v-for="(item, index) in items" :key="getItemKeyValue(item, index)" @click="selectItem(item)"
         class="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0">
         <slot name="item" :item="item">
@@ -41,6 +41,10 @@ export default {
     X
   },
   props: {
+    modelValue: {
+      type: String,
+      default: undefined
+    },
     value: {
       type: String,
       default: ''
@@ -95,6 +99,11 @@ export default {
       type: Number,
       default: 2
     },
+    // Buscar lista inicial ao focar (mesmo sem digitar)
+    searchOnFocus: {
+      type: Boolean,
+      default: false
+    },
     // Tempo de debounce em ms
     debounceMs: {
       type: Number,
@@ -106,9 +115,10 @@ export default {
       default: 200
     }
   },
+  emits: ['update:modelValue', 'input', 'select', 'clear'],
   data() {
     return {
-      searchValue: this.value || '',
+      searchValue: this.resolveIncomingValue(),
       items: [],
       loading: false,
       showDropdown: false,
@@ -117,9 +127,16 @@ export default {
     }
   },
   watch: {
+    modelValue: {
+      handler(newValue) {
+        if (newValue !== undefined && newValue !== this.searchValue) {
+          this.searchValue = newValue ?? ''
+        }
+      }
+    },
     value: {
       handler(newValue) {
-        if (newValue !== this.searchValue) {
+        if (this.modelValue === undefined && newValue !== this.searchValue) {
           this.searchValue = newValue
         }
       },
@@ -145,11 +162,12 @@ export default {
           return
         }
 
+        this.emitValue(newValue)
+
         // Não buscar se o valor não mudou ou é muito curto
         if (newValue === oldValue || !newValue || newValue.length < this.minChars) {
           this.items = []
           this.showDropdown = false
-          this.$emit('input', newValue)
           return
         }
 
@@ -157,7 +175,6 @@ export default {
         if (this.selectedItem && newValue === this.getItemLabelValue(this.selectedItem)) {
           this.items = []
           this.showDropdown = false
-          this.$emit('input', newValue)
           return
         }
 
@@ -165,9 +182,6 @@ export default {
         if (this.selectedItem && newValue !== this.getItemLabelValue(this.selectedItem)) {
           this.$emit('clear')
         }
-
-        // Emitir evento input para o componente pai
-        this.$emit('input', newValue)
 
         // Debounce da busca
         this.debounceTimer = setTimeout(() => {
@@ -177,6 +191,16 @@ export default {
     }
   },
   methods: {
+    resolveIncomingValue() {
+      if (this.modelValue !== undefined && this.modelValue !== null) {
+        return String(this.modelValue)
+      }
+      return this.value || ''
+    },
+    emitValue(value) {
+      this.$emit('update:modelValue', value)
+      this.$emit('input', value)
+    },
     handleInput(value) {
       // Garantir que recebemos o valor, não o evento
       let inputValue = ''
@@ -197,13 +221,18 @@ export default {
       }
 
       this.searchValue = inputValue
-      this.$emit('input', this.searchValue)
+      this.emitValue(this.searchValue)
     },
     handleFocus() {
       // Não mostrar dropdown se já há um item selecionado e o texto corresponde ao label dele
       if (this.selectedItem && this.searchValue === this.getItemLabelValue(this.selectedItem)) {
         this.showDropdown = false
         this.items = []
+        return
+      }
+
+      if (this.searchOnFocus && (!this.searchValue || this.searchValue.length < this.minChars)) {
+        this.performSearch(this.searchValue || '')
         return
       }
 
@@ -241,7 +270,17 @@ export default {
         searchTerm = String(term || '')
       }
 
-      if (!searchTerm || searchTerm.length < this.minChars) {
+      const digitsOnly = searchTerm.replace(/\D/g, '')
+      const isCpfLike = digitsOnly.length >= 3 && digitsOnly.length >= searchTerm.replace(/[.\-\/\s]/g, '').length * 0.8
+      const minRequired = isCpfLike ? 3 : this.minChars
+
+      if (!this.searchOnFocus && (!searchTerm || searchTerm.length < minRequired)) {
+        this.items = []
+        this.showDropdown = false
+        return
+      }
+
+      if (!this.searchOnFocus && searchTerm.length < minRequired) {
         this.items = []
         this.showDropdown = false
         return
@@ -275,7 +314,7 @@ export default {
       this.showDropdown = false
       this.items = []
       this.$emit('select', item)
-      this.$emit('input', this.searchValue)
+      this.emitValue(this.searchValue)
     },
     clearSelection() {
       this.ignoreNextWatch = true
@@ -283,7 +322,7 @@ export default {
       this.showDropdown = false
       this.items = []
       this.$emit('clear')
-      this.$emit('input', '')
+      this.emitValue('')
     }
   }
 }

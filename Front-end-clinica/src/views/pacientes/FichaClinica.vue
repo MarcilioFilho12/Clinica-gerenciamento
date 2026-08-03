@@ -28,8 +28,8 @@
           <div class="md:col-span-2">
             <div class="flex gap-2">
               <div class="flex-1">
-                <TypeaheadInput v-model="searchPaciente" label="Paciente" placeholder="Digite o nome do paciente..."
-                  :search-function="buscarPacientes" :selected-item="pacienteSelecionado"
+                <TypeaheadInput v-model="searchPaciente" label="Paciente" placeholder="Digite nome ou CPF do paciente..."
+                  :search-function="buscarPacientes" :selected-item="pacienteSelecionado" :search-on-focus="true"
                   :get-item-label="(item) => item.nome" :get-item-subtitle="(item) => {
                     const parts = []
                     if (item.cpf) parts.push(`CPF: ${item.cpf}`)
@@ -508,22 +508,17 @@ const breadcrumbs = computed(() => {
 })
 
 const buscarPacientes = async (termo) => {
-  if (!termo || termo.length < 2) {
-    return []
-  }
-
   try {
-    const response = await axios.get('/listar-pacientes', {
-      params: {
-        search: termo
-      }
-    })
+    const params = { limit: 20 }
+    if (termo && String(termo).trim() !== '') {
+      params.search = String(termo).trim()
+    }
+    const response = await axios.get('/listar-pacientes', { params })
 
     if (response.data.success) {
       return response.data.data || []
-    } else {
-      return []
     }
+    return []
   } catch (err) {
     console.error('Erro ao buscar pacientes:', err)
     return []

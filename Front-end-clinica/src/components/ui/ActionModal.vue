@@ -14,7 +14,7 @@
             leave-from="opacity-100 translate-y-0 sm:scale-100"
             leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
             <DialogPanel
-              :class="['relative transform overflow-hidden rounded-lg bg-white border-2 text-left shadow-xl transition-all sm:my-8', borderColorClass, modalWidth || 'sm:max-w-2xl']">
+              :class="['relative transform overflow-visible rounded-lg bg-white border-2 text-left shadow-xl transition-all sm:my-8', borderColorClass, modalWidth || 'sm:max-w-2xl']">
               <div class="bg-white px-4 pb-2 pt-5 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start mb-2">
                   <div class="mt-3 text-center sm:mx-4 sm:mt-0 sm:text-left">

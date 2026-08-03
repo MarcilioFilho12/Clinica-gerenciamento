@@ -251,9 +251,10 @@
           <TypeaheadInput
             v-model="searchPaciente"
             label="Paciente (opcional)"
-            placeholder="Digite o nome do paciente..."
+            placeholder="Digite nome ou CPF do paciente..."
             :search-function="buscarPacientes"
             :selected-item="pacienteSelecionado"
+            :search-on-focus="true"
             :get-item-label="(item) => item.nome"
             :get-item-subtitle="(item) => {
               const parts = []
@@ -475,9 +476,11 @@ const getFormaPagamentoLabel = (forma) => {
 
 const buscarPacientes = async (termo) => {
   try {
-    const response = await axios.get('/listar-pacientes', {
-      params: { search: termo }
-    })
+    const params = { limit: 20 }
+    if (termo && String(termo).trim() !== '') {
+      params.search = String(termo).trim()
+    }
+    const response = await axios.get('/listar-pacientes', { params })
     return response.data?.data || []
   } catch (err) {
     console.error('Erro ao buscar pacientes:', err)

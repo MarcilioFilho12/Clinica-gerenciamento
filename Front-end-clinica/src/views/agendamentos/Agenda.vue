@@ -581,15 +581,16 @@
           <div class="flex gap-2">
             <div class="flex-1">
               <TypeaheadInput v-model="searchPacientesModal" label="Paciente *"
-                placeholder="Digite o nome do paciente..."
+                placeholder="Digite nome ou CPF do paciente..."
                 :search-function="buscarPacientes" :selected-item="pacienteSelecionado"
+                :search-on-focus="true" :min-chars="2"
                 :get-item-label="(item) => item.nome" :get-item-subtitle="(item) => {
                   const parts = []
                   if (item.cpf) parts.push(`CPF: ${item.cpf}`)
                   if (item.contato) parts.push(`Tel: ${item.contato}`)
                   return parts.join(' • ')
                 }" :required="!editingAppointment" @select="selecionarPaciente" @clear="limparPaciente" />
-              <p class="mt-1 text-xs text-gray-500">Busque e selecione o paciente cadastrado antes de agendar.</p>
+              <p class="mt-1 text-xs text-gray-500">Clique no campo ou digite nome/CPF para escolher um paciente cadastrado.</p>
             </div>
 
             <button @click="irCadastrarPacienteAntes" type="button"
@@ -2034,22 +2035,18 @@ export default {
       }
     },
     async buscarPacientes(termo) {
-      if (!termo || termo.length < 2) {
-        return []
-      }
-
       try {
-        const response = await axios.get('/listar-pacientes', {
-          params: {
-            search: termo
-          }
-        })
+        const params = { limit: 20 }
+        if (termo && String(termo).trim() !== '') {
+          params.search = String(termo).trim()
+        }
+
+        const response = await axios.get('/listar-pacientes', { params })
 
         if (response.data.success) {
           return response.data.data || []
-        } else {
-          return []
         }
+        return []
       } catch (err) {
         console.error('Erro ao buscar pacientes:', err)
         return []
