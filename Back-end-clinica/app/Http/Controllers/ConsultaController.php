@@ -245,6 +245,7 @@ class ConsultaController extends Controller
     {
         try {
             $historico = $request->boolean('historico');
+            $this->normalizarHorariosRequest($request);
 
             $request->validate([
                 'user_id' => 'required|exists:users,id',
@@ -369,6 +370,60 @@ class ConsultaController extends Controller
     }
 
     /**
+     * Aceita H:i ou H:i:s (alguns browsers mobile enviam segundos).
+     */
+    private function normalizarHorariosRequest(Request $request): void
+    {
+        $merge = [];
+        foreach (['horario_inicio', 'horario_fim'] as $campo) {
+            $valor = $request->input($campo);
+            if (! is_string($valor) || $valor === '') {
+                continue;
+            }
+            if (preg_match('/^(\d{1,2}):(\d{2})(?::\d{2})?$/', trim($valor), $m)) {
+                $merge[$campo] = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+            }
+        }
+        if ($merge !== []) {
+            $request->merge($merge);
+        }
+    }
+
+    /**
+     * Compara só o relógio (H:i), sem instante/timezone do cast datetime:H:i.
+     * Cast de TIME como datetime misturava datas/fusos e gerava 400 falso em slots válidos.
+     */
+    private function parseHorarioHm(string $horario): ?Carbon
+    {
+        $hm = substr(trim($horario), 0, 5);
+        if (! preg_match('/^\d{2}:\d{2}$/', $hm)) {
+            if (preg_match('/^(\d{1,2}):(\d{2})/', $hm, $m)) {
+                $hm = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+            } else {
+                return null;
+            }
+        }
+
+        try {
+            return Carbon::createFromFormat('H:i', $hm);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function horarioModeloHm(mixed $value): string
+    {
+        if ($value instanceof Carbon) {
+            return $value->format('H:i');
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->format('H:i');
+        }
+
+        return substr(trim((string) $value), 0, 5);
+    }
+
+    /**
      * null = horário aceito (qualquer HH:mm dentro do expediente; não precisa bater na grade).
      */
     private function motivoHorarioInvalido(string $data, string $horarioInicio, string $horarioFim, $configuracao): ?string
@@ -377,7 +432,7 @@ class ConsultaController extends Controller
             return 'Informe horário de início e fim.';
         }
 
-        $dataCarbon = Carbon::parse($data);
+        $dataCarbon = Carbon::parse($data)->timezone(config('app.timezone'));
         $diaSemana = strtolower($dataCarbon->format('l'));
 
         $diasMap = [
@@ -395,10 +450,14 @@ class ConsultaController extends Controller
             return 'O profissional não atende neste dia da semana. Ajuste a configuração de agendamentos ou escolha outro dia.';
         }
 
-        $inicio = Carbon::parse($horarioInicio);
-        $fim = Carbon::parse($horarioFim);
-        $configInicio = Carbon::parse($configuracao->horario_inicio);
-        $configFim = Carbon::parse($configuracao->horario_fim);
+        $inicio = $this->parseHorarioHm($horarioInicio);
+        $fim = $this->parseHorarioHm($horarioFim);
+        $configInicio = $this->parseHorarioHm($this->horarioModeloHm($configuracao->horario_inicio));
+        $configFim = $this->parseHorarioHm($this->horarioModeloHm($configuracao->horario_fim));
+
+        if (! $inicio || ! $fim || ! $configInicio || ! $configFim) {
+            return 'Horário em formato inválido. Use HH:mm.';
+        }
 
         if ($fim->lte($inicio)) {
             return 'O horário de fim deve ser depois do início.';
@@ -413,8 +472,11 @@ class ConsultaController extends Controller
         }
 
         foreach ($configuracao->pausas ?? [] as $pausa) {
-            $pausaInicio = Carbon::parse($pausa['inicio']);
-            $pausaFim = Carbon::parse($pausa['fim']);
+            $pausaInicio = $this->parseHorarioHm((string) ($pausa['inicio'] ?? ''));
+            $pausaFim = $this->parseHorarioHm((string) ($pausa['fim'] ?? ''));
+            if (! $pausaInicio || ! $pausaFim) {
+                continue;
+            }
 
             if ($inicio->lt($pausaFim) && $fim->gt($pausaInicio)) {
                 return sprintf(
@@ -503,6 +565,7 @@ class ConsultaController extends Controller
     {
         try {
             $consulta = Consulta::findOrFail($id);
+            $this->normalizarHorariosRequest($request);
 
             $request->validate([
                 'user_id' => 'sometimes|required|exists:users,id',

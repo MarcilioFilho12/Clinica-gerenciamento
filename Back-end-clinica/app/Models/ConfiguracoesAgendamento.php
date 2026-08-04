@@ -66,32 +66,37 @@ class ConfiguracoesAgendamento extends Model
 
     public static function obterConfiguracaoAtiva($userId, $data = null)
     {
-        $data = $data ? Carbon::parse($data) : now();
+        $data = $data ? Carbon::parse($data)->startOfDay() : now()->startOfDay();
 
-        // Busca configuração específica do usuário
-        $config = self::where('user_id', $userId)
-            ->where('data_inicio_vigencia', '<=', $data)
-            ->where(function($query) use ($data) {
-                $query->whereNull('data_fim_vigencia')
-                      ->orWhere('data_fim_vigencia', '>', $data);
-            })
-            ->orderBy('data_inicio_vigencia', 'desc')
-            ->first();
+        $vigente = function ($query) use ($data) {
+            $query->where('data_inicio_vigencia', '<=', $data)
+                ->where(function ($q) use ($data) {
+                    // Inclui o dia final de vigência (antes era ">" e excluía o último dia)
+                    $q->whereNull('data_fim_vigencia')
+                        ->orWhereDate('data_fim_vigencia', '>=', $data);
+                });
+        };
 
-        // Se não encontrou, usa a configuração padrão
-        if (!$config) {
-            $config = self::where('padrao', true)
-                ->where('user_id', null)
-                ->where('data_inicio_vigencia', '<=', $data)
-                ->where(function($query) use ($data) {
-                    $query->whereNull('data_fim_vigencia')
-                          ->orWhere('data_fim_vigencia', '>', $data);
-                })
-                ->whereNull('deleted_at')
+        // 1) Configuração específica do profissional
+        if ($userId !== null && $userId !== '') {
+            $config = self::query()
+                ->where('user_id', $userId)
+                ->where($vigente)
+                ->orderByDesc('data_inicio_vigencia')
                 ->first();
+
+            if ($config) {
+                return $config;
+            }
         }
 
-        return $config;
+        // 2) Clínica: preferir padrao=true; senão qualquer user_id null vigente
+        return self::query()
+            ->whereNull('user_id')
+            ->where($vigente)
+            ->orderByDesc('padrao')
+            ->orderByDesc('data_inicio_vigencia')
+            ->first();
     }
 
     /**

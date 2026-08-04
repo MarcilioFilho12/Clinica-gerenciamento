@@ -1158,6 +1158,7 @@ export default {
       error: null,
       loadingHorariosModal: false,
       horariosDisponiveisModal: [],
+      configuracaoModal: null,
       profissionaisAtivos: [],
       parceiros: [],
       profissionaisModal: [],
@@ -2265,12 +2266,15 @@ export default {
 
         if (response.data.success) {
           this.horariosDisponiveisModal = response.data.data.horarios_disponiveis || []
+          this.configuracaoModal = response.data.data.configuracao || null
         } else {
           this.horariosDisponiveisModal = []
+          this.configuracaoModal = null
         }
       } catch (err) {
         console.error('Erro ao buscar horários disponíveis:', err)
         this.horariosDisponiveisModal = []
+        this.configuracaoModal = null
       } finally {
         this.loadingHorariosModal = false
       }
@@ -2279,6 +2283,8 @@ export default {
       this.showModal = false
       this.editingAppointment = null
       this.usarHorarioLivre = false
+      this.horariosDisponiveisModal = []
+      this.configuracaoModal = null
       this.form = {
         doctorId: '',
         patient: '',
@@ -2461,6 +2467,25 @@ export default {
           pago: !!this.form.pago,
           forma_pagamento: this.form.pago ? (this.form.forma_pagamento || null) : null,
           valor: this.form.pago && this.form.valor !== '' ? Number(this.form.valor) : null,
+        }
+
+        if (!dadosConsulta.user_id || Number.isNaN(dadosConsulta.user_id)) {
+          toastWarning('Selecione um profissional ativo para agendar', { autoClose: 3500 })
+          this.savingAppointment = false
+          return
+        }
+
+        const exp = this.configuracaoModal || this.configuracao
+        const expInicio = exp?.horario_inicio
+          ? String(exp.horario_inicio).substring(0, 5)
+          : null
+        const expFim = exp?.horario_fim
+          ? String(exp.horario_fim).substring(0, 5)
+          : null
+        if (expInicio && expFim && (horarioInicio < expInicio || horarioFim > expFim)) {
+          toastWarning(`Horário fora do expediente (${expInicio}–${expFim})`, { autoClose: 4000 })
+          this.savingAppointment = false
+          return
         }
 
         let response
