@@ -185,6 +185,7 @@ export function gerarEixoHorarios(configuracao) {
 export function buildWeekDays(rangeInicioISO) {
   const start = parseLocalDate(rangeInicioISO)
   const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+  const hoje = formatDateISO(new Date())
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start)
     d.setDate(start.getDate() + i)
@@ -193,7 +194,8 @@ export function buildWeekDays(rangeInicioISO) {
       date: iso,
       label: nomes[i],
       dayNumber: d.getDate(),
-      isToday: iso === formatDateISO(new Date()),
+      isToday: iso === hoje,
+      isPast: iso < hoje,
     }
   })
 }
@@ -206,7 +208,15 @@ export function buildMonthCells(rangeInicioISO, consultasPorData) {
   const cells = []
 
   for (let i = 0; i < startPad; i++) {
-    cells.push({ key: `pad-${i}`, inMonth: false, dayNumber: '', date: '', cards: [], isToday: false })
+    cells.push({
+      key: `pad-${i}`,
+      inMonth: false,
+      dayNumber: '',
+      date: '',
+      cards: [],
+      isToday: false,
+      isPast: false,
+    })
   }
 
   for (let day = 1; day <= daysInMonth; day++) {
@@ -221,6 +231,7 @@ export function buildMonthCells(rangeInicioISO, consultasPorData) {
       cards,
       total: cards.length,
       isToday: iso === today,
+      isPast: iso < today,
     })
   }
 
@@ -232,6 +243,7 @@ export function buildMonthCells(rangeInicioISO, consultasPorData) {
       date: '',
       cards: [],
       isToday: false,
+      isPast: false,
     })
   }
 

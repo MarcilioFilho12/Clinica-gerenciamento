@@ -48,3 +48,25 @@ export function minutesToTime(total) {
   const m = total % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
+
+/** Data local (YYYY-MM-DD) estritamente anterior a hoje. */
+export function isDataNoPassado(dataIso) {
+  if (!dataIso) return false
+  const hoje = formatDateISO(new Date())
+  return dataIso < hoje
+}
+
+/**
+ * Horário já passou (data anterior a hoje, ou hoje com HH:mm < agora).
+ * @param {string} dataIso YYYY-MM-DD
+ * @param {string} horarioHhmm HH:mm
+ */
+export function isHorarioNoPassado(dataIso, horarioHhmm) {
+  if (!dataIso || !horarioHhmm) return false
+  const hoje = formatDateISO(new Date())
+  if (dataIso < hoje) return true
+  if (dataIso > hoje) return false
+  const agora = new Date()
+  const minsAgora = agora.getHours() * 60 + agora.getMinutes()
+  return timeToMinutes(horarioHhmm) < minsAgora
+}

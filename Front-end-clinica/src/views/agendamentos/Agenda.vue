@@ -298,13 +298,15 @@
               'flex items-center p-3 border rounded-md transition-colors gap-2',
               horario.ocupado
                 ? (isConsultaEmAtendimento(horario)
-                    ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                    ? 'border-green-300 bg-green-50 hover:bg-green-100 opacity-100'
                     : isConsultaEncerrada(horario)
-                    ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+                    ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 opacity-100'
                     : isConsultaEmergencial(horario)
-                    ? 'border-orange-300 bg-orange-50 hover:bg-orange-100'
-                    : 'border-red-200 bg-red-50 hover:bg-red-100')
-                : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-orange-300 bg-orange-50 hover:bg-orange-100 opacity-100'
+                    : 'border-red-200 bg-red-50 hover:bg-red-100 opacity-100')
+                : isHorarioNoPassado(selectedDate, horario.horario_inicio)
+                  ? 'border-gray-100 bg-gray-50/70 opacity-40'
+                  : 'border-gray-200 hover:bg-gray-50 opacity-100'
             ]">
             <div class="flex flex-col items-start space-y-1 flex-shrink-0">
               <div class="flex items-center space-x-2">
@@ -449,14 +451,18 @@
         <!-- Slots padrão + Consultas de prioridade alta que não correspondem aos slots -->
         <div v-for="slot in getAllTimeSlotsForDoctor(selectedDoctor)" :key="slot.time || slot"
           :class="[
-            'border rounded-lg p-4 hover:shadow-md transition-all',
-            slot.appointment && slot.appointment.situacao_id === 6
-              ? 'border-green-300 bg-green-50'
-              : slot.appointment && slot.appointment.situacao_id === 4
-              ? 'border-blue-300 bg-blue-50'
-              : slot.appointment && slot.appointment.prioridade === 'alta'
-              ? 'border-orange-300 bg-orange-50'
-              : 'border-gray-200'
+            'border rounded-lg p-4 transition-all',
+            slot.appointment
+              ? (slot.appointment.situacao_id === 6
+                ? 'border-green-300 bg-green-50 opacity-100 hover:shadow-md'
+                : slot.appointment.situacao_id === 4
+                ? 'border-blue-300 bg-blue-50 opacity-100 hover:shadow-md'
+                : slot.appointment.prioridade === 'alta'
+                ? 'border-orange-300 bg-orange-50 opacity-100 hover:shadow-md'
+                : 'border-gray-200 opacity-100 hover:shadow-md')
+              : isHorarioNoPassado(selectedDate, slot.time || slot)
+                ? 'border-gray-100 bg-gray-50/70 opacity-40'
+                : 'border-gray-200 opacity-100 hover:shadow-md'
           ]">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center space-x-2">
@@ -963,6 +969,7 @@ import axios from '../../services/axios.js'
 import { toastSuccess, toastError, toastWarning } from '../../composables/useToast.js'
 import { useSidebarLayout } from '../../composables/useSidebarLayout.js'
 import { urlPreCadastro } from '../../utils/fluxoAtendimento.js'
+import { isHorarioNoPassado as horarioJaPassou } from '../../utils/agendaDatas.js'
 import { MAX_PROFISSIONAIS_PANORAMA } from '../../utils/agendaPanorama.js'
 import AgendaSemanaPanorama from '../../components/agenda/AgendaSemanaPanorama.vue'
 import AgendaMesPanorama from '../../components/agenda/AgendaMesPanorama.vue'
@@ -1575,34 +1582,7 @@ export default {
       return dataSelecionada < hoje
     },
     isHorarioNoPassado(data, horario) {
-      if (!data || !horario) return false
-
-      const agora = new Date()
-      
-      // Obter data atual em formato local (sem timezone)
-      const hoje = new Date()
-      const hojeLocal = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-      
-      // Converter data selecionada para formato local
-      const [ano, mes, dia] = data.split('-').map(Number)
-      const dataSelecionada = new Date(ano, mes - 1, dia)
-      
-      // Se a data for anterior a hoje, está no passado
-      if (dataSelecionada < hojeLocal) {
-        return true
-      }
-      
-      // Se a data for futura (depois de hoje), não está no passado
-      if (dataSelecionada > hojeLocal) {
-        return false
-      }
-      
-      // Se for hoje, verificar se o horário já passou
-      const [hora, minuto] = horario.split(':').map(Number)
-      const horarioAgendamento = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, minuto, 0)
-      
-      // Verificar se o horário já passou
-      return horarioAgendamento < agora
+      return horarioJaPassou(data, horario)
     },
     normalizeTime(time) {
       if (typeof time === 'string') {

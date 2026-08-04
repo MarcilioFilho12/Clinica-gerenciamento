@@ -21,7 +21,13 @@
         :disabled="!cel.inMonth"
         :class="[
           'min-h-0 h-full overflow-hidden rounded-lg border p-1 sm:p-1.5 text-left transition-colors flex flex-col',
-          cel.inMonth ? 'hover:border-gray-300 bg-white border-gray-200' : 'bg-gray-50/80 text-gray-300 cursor-default border-transparent',
+          cel.inMonth
+            ? (cel.isPast && !cel.cards.length
+              ? 'bg-gray-50/90 text-gray-400 border-gray-100 opacity-40 cursor-default'
+              : cel.isPast
+                ? 'hover:border-gray-300 bg-gray-50/60 border-gray-200 opacity-100'
+                : 'hover:border-gray-300 bg-white border-gray-200 opacity-100')
+            : 'bg-gray-50/80 text-gray-300 cursor-default border-transparent opacity-40',
           cel.date === selectedDate ? 'ring-2 ring-gray-900' : '',
         ]"
         @click="cel.inMonth && $emit('select-day', cel.date)"
@@ -37,11 +43,11 @@
           </span>
         </div>
 
-        <div v-if="cel.inMonth" class="space-y-0.5 min-h-0 overflow-hidden flex-1">
+        <div v-if="cel.inMonth" class="space-y-0.5 min-h-0 overflow-hidden flex-1 opacity-100">
           <div
             v-for="card in cel.cards.slice(0, maxChips)"
             :key="card.id"
-            class="rounded-md overflow-hidden flex text-[10px] sm:text-[11px] leading-tight"
+            class="rounded-md overflow-hidden flex text-[10px] sm:text-[11px] leading-tight opacity-100"
             :title="tooltipCard(card)"
             @click.stop="$emit('select-event', card)"
           >

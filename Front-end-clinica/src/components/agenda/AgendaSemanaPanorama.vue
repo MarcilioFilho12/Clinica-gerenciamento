@@ -3,13 +3,16 @@
     <AgendaPanoramaLegenda class="px-4 pt-3 pb-2 border-b border-gray-100" />
 
     <!-- Mobile -->
-    <div class="md:hidden space-y-3 p-3">
+        <div class="md:hidden space-y-3 p-3">
       <button
         v-for="dia in weekDays"
         :key="dia.date"
         type="button"
         class="w-full text-left border rounded-xl p-3 hover:border-gray-300 transition-colors bg-white"
-        :class="dia.isToday ? 'border-gray-900 ring-1 ring-gray-900/10' : 'border-gray-200'"
+        :class="[
+          dia.isToday ? 'border-gray-900 ring-1 ring-gray-900/10' : 'border-gray-200',
+          dia.isPast && !(cardsPorDia[dia.date] || []).length ? 'opacity-45' : 'opacity-100',
+        ]"
         @click="$emit('select-day', dia.date)"
       >
         <div class="flex items-baseline justify-between mb-2">
@@ -23,7 +26,7 @@
           <li
             v-for="card in (cardsPorDia[dia.date] || []).slice(0, 5)"
             :key="card.id"
-            class="text-xs rounded-lg overflow-hidden flex"
+            class="text-xs rounded-lg overflow-hidden flex opacity-100"
             @click.stop="$emit('select-event', card)"
           >
             <span :class="['w-1 flex-shrink-0', card.corProf.bar]" />
@@ -48,7 +51,10 @@
             :key="`h-${dia.date}`"
             type="button"
             class="p-2 text-center border-r border-gray-200 last:border-r-0 hover:bg-white transition-colors"
-            :class="dia.isToday ? 'bg-white' : ''"
+            :class="[
+              dia.isToday ? 'bg-white' : '',
+              dia.isPast ? 'opacity-50' : 'opacity-100',
+            ]"
             @click="$emit('select-day', dia.date)"
           >
             <div class="text-[11px] font-medium text-gray-500 uppercase">{{ dia.label }}</div>
@@ -68,7 +74,8 @@
             <div
               v-for="slot in eixo.slots"
               :key="slot.time"
-              class="border-b border-gray-100 text-[10px] text-gray-400 px-1 flex items-start justify-end pr-2 pt-1"
+              class="border-b border-gray-100 text-[10px] px-1 flex items-start justify-end pr-2 pt-1 transition-opacity"
+              :class="isSlotTimePastToday(slot.time) ? 'text-gray-300 opacity-45' : 'text-gray-400 opacity-100'"
               :style="{ height: `${slotHeightPx}px` }"
             >
               {{ slot.time }}
@@ -79,11 +86,22 @@
             v-for="dia in weekDays"
             :key="`col-${dia.date}`"
             class="relative border-r border-gray-100 last:border-r-0 cursor-cell"
-            :class="dia.isToday ? 'bg-sky-50/40' : 'bg-white'"
+            :class="dia.isToday ? 'bg-sky-50/40' : dia.isPast ? 'bg-gray-50/90' : 'bg-white'"
             :style="{ height: `${eixo.slots.length * slotHeightPx}px` }"
             title="Clique vazio para agendar"
             @click="onColunaClick($event, dia.date)"
           >
+            <!-- Faixa opaca do passado (dia inteiro ou até a linha agora) -->
+            <div
+              v-if="dia.isPast"
+              class="absolute inset-0 z-[5] bg-gray-400/20 pointer-events-none"
+            />
+            <div
+              v-else-if="dia.isToday && nowLinePct != null"
+              class="absolute left-0 right-0 top-0 z-[5] bg-gray-400/25 pointer-events-none"
+              :style="{ height: `${nowLinePct}%` }"
+            />
+
             <div
               v-for="slot in eixo.slots"
               :key="`${dia.date}-${slot.time}`"
@@ -105,13 +123,13 @@
               v-for="pos in blocosDoDia(dia.date)"
               :key="pos.card.id"
               type="button"
-              class="absolute left-0.5 right-0.5 rounded-md overflow-hidden text-left shadow-sm hover:shadow-md hover:z-20 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-shadow flex"
+              class="absolute left-0.5 right-0.5 rounded-md overflow-hidden text-left shadow-sm hover:shadow-md hover:z-20 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-shadow flex opacity-100"
               :class="[pos.card.corProf.soft, pos.card.corProf.text]"
               :style="{
                 top: `${pos.topPct}%`,
                 height: `${pos.heightPct}%`,
                 minHeight: '22px',
-                zIndex: 10,
+                zIndex: 15,
               }"
               :title="tooltipCard(pos.card)"
               @click.stop="$emit('select-event', pos.card)"
@@ -146,7 +164,7 @@
 
 <script>
 import AgendaPanoramaLegenda from './AgendaPanoramaLegenda.vue'
-import { minutesToTime } from '../../utils/agendaDatas.js'
+import { minutesToTime, obterDataAtualISO, isHorarioNoPassado } from '../../utils/agendaDatas.js'
 import {
   agruparConsultasPorData,
   buildWeekDays,
@@ -205,6 +223,10 @@ export default {
     primeiroNome(nome) {
       if (!nome) return ''
       return String(nome).trim().split(/\s+/)[0]
+    },
+    isSlotTimePastToday(time) {
+      void this.nowTick
+      return isHorarioNoPassado(obterDataAtualISO(), time)
     },
     statusBarClass(card) {
       if (card.statusKey === 'urgencia') return 'bg-red-500'
