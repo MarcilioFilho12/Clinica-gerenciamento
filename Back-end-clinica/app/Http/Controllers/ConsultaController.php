@@ -7,6 +7,7 @@ use App\Models\Consulta;
 use App\Models\ConfiguracoesAgendamento;
 use App\Models\User;
 use App\Events\PacienteChamado;
+use App\Support\Profiles;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -179,8 +180,15 @@ class ConsultaController extends Controller
         try {
             $request->validate([
                 'user_id' => 'required|exists:users,id',
-                'data' => 'required|date|after_or_equal:today'
+                'data' => 'required|date',
             ]);
+
+            if ($erro = $this->motivoProfissionalInvalido((int) $request->user_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $erro,
+                ], 422);
+            }
 
             $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
                 $request->user_id,
@@ -260,6 +268,10 @@ class ConsultaController extends Controller
 
             try {
                 $consulta = DB::transaction(function () use ($request, $historico, &$configuracaoId) {
+                    if ($erroProf = $this->motivoProfissionalInvalido((int) $request->user_id)) {
+                        throw new RuntimeException('PROF_INVALIDO|'.$erroProf);
+                    }
+
                     if (! $historico) {
                         $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva(
                             $request->user_id,
@@ -270,8 +282,14 @@ class ConsultaController extends Controller
                             throw new RuntimeException('SEM_CONFIG');
                         }
 
-                        if (! $this->validarHorario($request, $configuracao)) {
-                            throw new RuntimeException('HORARIO_INVALIDO');
+                        $motivoHorario = $this->motivoHorarioInvalido(
+                            (string) $request->data,
+                            (string) $request->horario_inicio,
+                            (string) $request->horario_fim,
+                            $configuracao
+                        );
+                        if ($motivoHorario) {
+                            throw new RuntimeException('HORARIO_INVALIDO|'.$motivoHorario);
                         }
 
                         if ($this->verificarConflitoHorario(
@@ -312,21 +330,7 @@ class ConsultaController extends Controller
                     ]);
                 });
             } catch (RuntimeException $e) {
-                return match ($e->getMessage()) {
-                    'SEM_CONFIG' => response()->json([
-                        'success' => false,
-                        'message' => 'Nenhuma configuração de agendamento encontrada para esta data.',
-                    ], 400),
-                    'HORARIO_INVALIDO' => response()->json([
-                        'success' => false,
-                        'message' => 'Horário não disponível conforme configuração de agendamento.',
-                    ], 400),
-                    'HORARIO_OCUPADO' => response()->json([
-                        'success' => false,
-                        'message' => 'Horário já ocupado para este profissional',
-                    ], 422),
-                    default => throw $e,
-                };
+                return $this->respostaExcecaoAgendamento($e);
             }
 
             return response()->json([
@@ -356,10 +360,26 @@ class ConsultaController extends Controller
 
     private function validarHorario(Request $request, $configuracao)
     {
-        $data = Carbon::parse($request->data);
-        $diaSemana = strtolower($data->format('l')); // monday, tuesday, etc.
+        return $this->motivoHorarioInvalido(
+            (string) $request->data,
+            (string) ($request->horario_inicio ?? ''),
+            (string) ($request->horario_fim ?? ''),
+            $configuracao
+        ) === null;
+    }
 
-        // Mapear dias da semana
+    /**
+     * null = horário aceito (qualquer HH:mm dentro do expediente; não precisa bater na grade).
+     */
+    private function motivoHorarioInvalido(string $data, string $horarioInicio, string $horarioFim, $configuracao): ?string
+    {
+        if ($horarioInicio === '' || $horarioFim === '') {
+            return 'Informe horário de início e fim.';
+        }
+
+        $dataCarbon = Carbon::parse($data);
+        $diaSemana = strtolower($dataCarbon->format('l'));
+
         $diasMap = [
             'monday' => 'seg',
             'tuesday' => 'ter',
@@ -367,37 +387,96 @@ class ConsultaController extends Controller
             'thursday' => 'qui',
             'friday' => 'sex',
             'saturday' => 'sab',
-            'sunday' => 'dom'
+            'sunday' => 'dom',
         ];
 
-        $diaConfig = $diasMap[$diaSemana];
-
-        // Verificar se o dia está ativo
-        if (!$configuracao->$diaConfig) {
-            return false;
+        $diaConfig = $diasMap[$diaSemana] ?? null;
+        if (! $diaConfig || ! $configuracao->$diaConfig) {
+            return 'O profissional não atende neste dia da semana. Ajuste a configuração de agendamentos ou escolha outro dia.';
         }
 
-        // Verificar se está dentro do horário de funcionamento
-        $horarioInicio = Carbon::parse($request->horario_inicio);
-        $horarioFim = Carbon::parse($request->horario_fim);
+        $inicio = Carbon::parse($horarioInicio);
+        $fim = Carbon::parse($horarioFim);
         $configInicio = Carbon::parse($configuracao->horario_inicio);
         $configFim = Carbon::parse($configuracao->horario_fim);
 
-        if ($horarioInicio < $configInicio || $horarioFim > $configFim) {
-            return false;
+        if ($fim->lte($inicio)) {
+            return 'O horário de fim deve ser depois do início.';
         }
 
-        // Verificar se não conflita com pausas
-        foreach ($configuracao->pausas as $pausa) {
+        if ($inicio->lt($configInicio) || $fim->gt($configFim)) {
+            return sprintf(
+                'Horário fora do expediente (%s–%s). A recepção pode marcar qualquer horário dentro dessa janela, inclusive fora da grade de slots.',
+                $configInicio->format('H:i'),
+                $configFim->format('H:i')
+            );
+        }
+
+        foreach ($configuracao->pausas ?? [] as $pausa) {
             $pausaInicio = Carbon::parse($pausa['inicio']);
             $pausaFim = Carbon::parse($pausa['fim']);
 
-            if ($horarioInicio < $pausaFim && $horarioFim > $pausaInicio) {
-                return false;
+            if ($inicio->lt($pausaFim) && $fim->gt($pausaInicio)) {
+                return sprintf(
+                    'Horário conflita com pausa configurada (%s–%s).',
+                    $pausaInicio->format('H:i'),
+                    $pausaFim->format('H:i')
+                );
             }
         }
 
-        return true;
+        return null;
+    }
+
+    private function motivoProfissionalInvalido(int $userId): ?string
+    {
+        $user = User::query()->find($userId);
+        if (! $user) {
+            return 'Profissional não encontrado.';
+        }
+        if ((int) $user->profile_id !== Profiles::PROFISSIONAL) {
+            return 'Selecione um usuário com perfil Profissional para a agenda.';
+        }
+        if ((int) $user->situacao_id !== 1) {
+            return 'Este profissional está inativo e não pode receber agendamentos.';
+        }
+
+        return null;
+    }
+
+    private function respostaExcecaoAgendamento(RuntimeException $e): JsonResponse
+    {
+        $msg = $e->getMessage();
+
+        if (str_starts_with($msg, 'HORARIO_INVALIDO|')) {
+            return response()->json([
+                'success' => false,
+                'message' => substr($msg, strlen('HORARIO_INVALIDO|')),
+            ], 400);
+        }
+
+        if (str_starts_with($msg, 'PROF_INVALIDO|')) {
+            return response()->json([
+                'success' => false,
+                'message' => substr($msg, strlen('PROF_INVALIDO|')),
+            ], 422);
+        }
+
+        return match ($msg) {
+            'SEM_CONFIG' => response()->json([
+                'success' => false,
+                'message' => 'Nenhuma configuração de agendamento encontrada para este profissional nesta data. Cadastre em Configurações → Agendamentos.',
+            ], 400),
+            'HORARIO_INVALIDO' => response()->json([
+                'success' => false,
+                'message' => 'Horário não disponível conforme configuração de agendamento.',
+            ], 400),
+            'HORARIO_OCUPADO' => response()->json([
+                'success' => false,
+                'message' => 'Horário já ocupado para este profissional. Escolha outro horário ou use um encaixe livre em horário vago.',
+            ], 422),
+            default => throw $e,
+        };
     }
 
     public function show($id): JsonResponse
@@ -477,21 +556,30 @@ class ConsultaController extends Controller
                     $consulta = Consulta::whereKey($consulta->id)->lockForUpdate()->firstOrFail();
 
                     if ($camposHorarioAlterados && $prioridade !== 'alta') {
+                        if ($erroProf = $this->motivoProfissionalInvalido((int) $userId)) {
+                            throw new RuntimeException('PROF_INVALIDO|'.$erroProf);
+                        }
+
                         $configuracao = ConfiguracoesAgendamento::obterConfiguracaoAtiva($userId, $data);
 
                         if (! $configuracao) {
                             throw new RuntimeException('SEM_CONFIG');
                         }
 
-                        if (! $this->validarHorario($request, $configuracao)) {
-                            throw new RuntimeException('HORARIO_INVALIDO');
+                        $inicio = (string) ($request->horario_inicio ?? $consulta->horario_inicio->format('H:i'));
+                        $fim = (string) ($request->horario_fim ?? $consulta->horario_fim->format('H:i'));
+                        $dataStr = is_string($data) ? $data : Carbon::parse($data)->format('Y-m-d');
+
+                        $motivoHorario = $this->motivoHorarioInvalido($dataStr, $inicio, $fim, $configuracao);
+                        if ($motivoHorario) {
+                            throw new RuntimeException('HORARIO_INVALIDO|'.$motivoHorario);
                         }
 
                         if ($this->verificarConflitoHorario(
                             $userId,
                             $data,
-                            $request->horario_inicio ?? $consulta->horario_inicio->format('H:i'),
-                            $request->horario_fim ?? $consulta->horario_fim->format('H:i'),
+                            $inicio,
+                            $fim,
                             $id,
                             true
                         )) {
@@ -531,21 +619,7 @@ class ConsultaController extends Controller
                     return $consulta;
                 });
             } catch (RuntimeException $e) {
-                return match ($e->getMessage()) {
-                    'SEM_CONFIG' => response()->json([
-                        'success' => false,
-                        'message' => 'Nenhuma configuração de agendamento encontrada para esta data.',
-                    ], 400),
-                    'HORARIO_INVALIDO' => response()->json([
-                        'success' => false,
-                        'message' => 'Horário não disponível conforme configuração de agendamento.',
-                    ], 400),
-                    'HORARIO_OCUPADO' => response()->json([
-                        'success' => false,
-                        'message' => 'Horário já ocupado para este profissional',
-                    ], 422),
-                    default => throw $e,
-                };
+                return $this->respostaExcecaoAgendamento($e);
             }
 
             return response()->json([

@@ -35,7 +35,7 @@
     <!-- Formulário -->
     <form v-else @submit.prevent="salvarConfiguracoes" class="space-y-8">
       <!-- Tipo de Configuração -->
-      <BaseCard v-if="mostrarSeletorTipoConfig" padding="md">
+      <BaseCard padding="md">
         <template #header>
           <h2 class="text-lg font-semibold text-gray-900 flex items-center space-x-2">
             <Settings class="w-5 h-5 text-blue-600" />
@@ -44,50 +44,49 @@
         </template>
 
         <div class="space-y-4">
-          <p class="text-sm text-gray-600">
-            Use a <strong>padrão</strong> para todos. Só crie personalizada se um profissional tiver horário diferente.
-          </p>
           <!-- Configuração Padrão -->
           <label
-            class="flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50 min-h-[3.5rem]"
+            class="flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50"
             :class="configuracoes.user_id === null ? 'border-blue-500 bg-blue-50' : 'border-gray-200'">
             <input type="radio" :value="null" @change="selecionarConfiguracaoPadrao"
               :checked="configuracoes.user_id === null" class="sr-only" />
-            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
+            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center"
               :class="configuracoes.user_id === null ? 'border-blue-500 bg-blue-500' : 'border-gray-300'">
               <div v-if="configuracoes.user_id === null" class="w-2 h-2 bg-white rounded-full"></div>
             </div>
             <div>
-              <div class="font-medium text-gray-900">Configuração padrão da clínica</div>
-              <div class="text-sm text-gray-500">Vale para todos os profissionais sem grade própria</div>
+              <div class="font-medium text-gray-900">Configuração Padrão</div>
+              <div class="text-sm text-gray-500">Aplicada a todos os profissionais que não possuem uma configuração
+              </div>
             </div>
           </label>
 
           <!-- Configuração Personalizada -->
           <label
-            class="flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50 min-h-[3.5rem]"
+            class="flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all hover:bg-gray-50"
             :class="configuracoes.user_id !== null ? 'border-blue-500 bg-blue-50' : 'border-gray-200'">
             <input type="radio" :value="'personalizada'" @change="selecionarConfiguracaoPersonalizada"
               :checked="configuracoes.user_id !== null" class="sr-only" />
-            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
+            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center"
               :class="configuracoes.user_id !== null ? 'border-blue-500 bg-blue-500' : 'border-gray-300'">
               <div v-if="configuracoes.user_id !== null" class="w-2 h-2 bg-white rounded-full"></div>
             </div>
             <div>
-              <div class="font-medium text-gray-900">Grade de um profissional</div>
-              <div class="text-sm text-gray-500">Sobrescreve a padrão só para quem você escolher</div>
+              <div class="font-medium text-gray-900">Configuração Personalizada</div>
+              <div class="text-sm text-gray-500">Aplicada a um profissional específico</div>
             </div>
           </label>
 
           <!-- Seleção de Usuário (se personalizada) -->
           <div v-if="configuracoes.user_id !== null && configuracoes.user_id !== 'temp'">
-            <BaseSelect v-model="configuracoes.user_id" label="Profissional desta grade" :options="opcoesUsuarios"
+            <BaseSelect v-model="configuracoes.user_id" label="Selecione o Profissional" :options="opcoesUsuarios"
               :disabled="carregandoUsuarios" />
             <div v-if="carregandoUsuarios" class="mt-2 text-sm text-gray-500">
               Carregando profissionais...
             </div>
           </div>
 
+          <!-- Mensagem de carregamento quando seleciona personalizada mas não há usuários -->
           <div v-if="configuracoes.user_id === 'temp'" class="ml-7">
             <div class="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 text-sm">
               Carregando profissionais...
@@ -95,14 +94,6 @@
           </div>
         </div>
       </BaseCard>
-
-      <div
-        v-else-if="unicoProfissionalClinica"
-        class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
-      >
-        Há apenas <strong>{{ usuarios[0]?.name || 'um profissional' }}</strong> na clínica —
-        esta grade vale para a agenda dele (não é preciso escolher “padrão” vs “personalizada”).
-      </div>
 
       <!-- Dias Disponíveis -->
       <BaseCard padding="md">
@@ -567,14 +558,6 @@ export default {
     },
     isNovaConfiguracao() {
       return this.$route.path.includes('/novo')
-    },
-    unicoProfissionalClinica() {
-      return Array.isArray(this.usuarios) && this.usuarios.length === 1
-    },
-    /** Com 1 profissional, não perguntar padrão vs personalizada (evita config duplicada). */
-    mostrarSeletorTipoConfig() {
-      if (this.carregandoUsuarios && !this.usuarios.length) return true
-      return !this.unicoProfissionalClinica
     },
     /**
      * Verifica se todas as configurações obrigatórias estão preenchidas
@@ -1068,11 +1051,6 @@ export default {
         // Se estava esperando usuários (valor temp), selecionar o primeiro
         if (this.configuracoes.user_id === 'temp' && this.usuarios.length > 0) {
           this.configuracoes.user_id = this.usuarios[0].id
-        }
-
-        // Clínica com 1 profissional: grade única = padrão (evita duplicar “personalizada”)
-        if (this.isNovaConfiguracao && Array.isArray(this.usuarios) && this.usuarios.length === 1) {
-          this.configuracoes.user_id = null
         }
       } catch (error) {
         console.error('Erro ao carregar usuários:', error)

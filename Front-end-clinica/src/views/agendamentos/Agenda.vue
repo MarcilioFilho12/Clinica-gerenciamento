@@ -143,22 +143,17 @@
               class="block w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
             />
           </div>
-          <div v-if="exigeEscolhaProfissional" class="flex-1 w-full min-w-0">
-            <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Foco no profissional (Dia)</label>
+          <div class="flex-1 w-full min-w-0">
+            <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Foco no médico (Dia)</label>
             <select
               v-model="selectedDoctor"
-              class="block w-full min-h-10 px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+              class="block w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
             >
-              <option value="">Todos</option>
-              <option v-for="doctor in listaProfissionais" :key="doctor.id" :value="String(doctor.id)">
+              <option value="">Todos os médicos</option>
+              <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">
                 {{ doctor.name }}
               </option>
             </select>
-          </div>
-          <div v-else-if="profissionalUnico" class="flex-1 w-full min-w-0 flex items-end">
-            <p class="text-sm text-gray-700 pb-1.5">
-              Agenda: <span class="font-medium">{{ profissionalUnico.name }}</span>
-            </p>
           </div>
         </div>
 
@@ -681,129 +676,205 @@
     </div><!-- /layout sidebar+main -->
 
     <ActionModal :open="showModal" :titulo="editingAppointment ? 'Editar Consulta' : 'Nova Consulta'"
-      :subtitulo="subtituloModalConsulta"
+      :subtitulo="editingAppointment ? 'Atualize os dados e salve' : 'Preencha profissional, horário e paciente — horários livres permitidos dentro do expediente'"
       :action-label="savingAppointment ? (editingAppointment ? 'Atualizando...' : 'Agendando...') : (editingAppointment ? 'Atualizar' : 'Agendar')"
-      :action-disabled="savingAppointment" modal-width="sm:max-w-lg" @acao="saveAppointment" @cancel="closeModal">
-      <div class="space-y-4">
-        <!-- Essencial: paciente + contexto + quando -->
-        <div>
+      :action-disabled="savingAppointment" modal-width="sm:max-w-2xl" @acao="saveAppointment" @cancel="closeModal">
+      <div class="space-y-5 text-left">
+        <!-- 1. Quando e com quem -->
+        <section class="rounded-lg border border-gray-200 bg-gray-50/80 p-3 sm:p-4 space-y-3" aria-labelledby="agendar-quando">
+          <h3 id="agendar-quando" class="text-sm font-semibold text-gray-900">Quando e com quem</h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <InputData v-model="form.date" label="Data *" :required="true" />
+            </div>
+            <div>
+              <label for="agendar-profissional" class="block text-sm font-medium text-gray-700 mb-2">
+                Profissional <span class="text-red-500">*</span>
+              </label>
+              <select
+                id="agendar-profissional"
+                v-model="form.doctorId"
+                class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
+                required
+                aria-required="true"
+              >
+                <option value="">Selecione o profissional</option>
+                <option v-for="doctor in medicosParaAgendar" :key="doctor.id" :value="doctor.id">
+                  {{ doctor.name }}
+                </option>
+              </select>
+              <p v-if="!medicosParaAgendar.length" class="mt-1 text-xs text-amber-700">
+                Nenhum profissional ativo. Cadastre em Configurações → Usuários (perfil Profissional).
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Horário <span class="text-red-500">*</span>
+              </label>
+              <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-xs bg-white p-0.5" role="group" aria-label="Tipo de horário">
+                <button
+                  type="button"
+                  :class="['px-2.5 py-1.5 rounded-md min-h-[36px]', !usarHorarioLivre ? 'bg-gray-900 text-white font-medium' : 'text-gray-600 hover:text-gray-900']"
+                  @click="usarHorarioLivre = false"
+                >
+                  Sugestões
+                </button>
+                <button
+                  type="button"
+                  :class="['px-2.5 py-1.5 rounded-md min-h-[36px]', usarHorarioLivre ? 'bg-gray-900 text-white font-medium' : 'text-gray-600 hover:text-gray-900']"
+                  @click="ativarHorarioLivre"
+                >
+                  Horário livre
+                </button>
+              </div>
+            </div>
+
+            <p class="text-xs text-gray-500 mb-2">
+              A grade sugere horários livres. Com <strong>Horário livre</strong>, a recepção marca qualquer horário dentro do expediente (encaixe).
+            </p>
+
+            <div v-if="!usarHorarioLivre" class="space-y-2">
+              <div v-if="loadingHorariosModal" class="text-sm text-gray-500 py-2">Carregando horários…</div>
+              <div
+                v-else-if="!form.doctorId || !form.date"
+                class="text-sm text-gray-500 py-2"
+              >
+                Selecione profissional e data para ver sugestões.
+              </div>
+              <div v-else-if="!horariosLivresModal.length" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Nenhum slot livre na grade.
+                <button type="button" class="underline font-medium ml-1" @click="ativarHorarioLivre">Usar horário livre</button>
+              </div>
+              <div v-else class="flex flex-wrap gap-2 max-h-36 overflow-y-auto" role="listbox" aria-label="Horários sugeridos">
+                <button
+                  v-for="horario in horariosLivresModal"
+                  :key="horario.horario_inicio"
+                  type="button"
+                  role="option"
+                  :aria-selected="form.time === horario.horario_inicio"
+                  :class="[
+                    'min-h-[40px] px-3 py-2 rounded-lg border text-sm font-medium transition-colors',
+                    form.time === horario.horario_inicio
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-800 border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                  ]"
+                  @click="selecionarHorarioSugestao(horario)"
+                >
+                  {{ horario.horario_inicio }}
+                  <span class="opacity-80 font-normal">–{{ horario.horario_fim }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label for="agendar-hora-livre" class="block text-xs font-medium text-gray-600 mb-1">Início</label>
+                <input
+                  id="agendar-hora-livre"
+                  v-model="form.time"
+                  type="time"
+                  step="60"
+                  class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label for="agendar-duracao" class="block text-xs font-medium text-gray-600 mb-1">Duração</label>
+                <select
+                  id="agendar-duracao"
+                  v-model.number="form.duracaoMinutos"
+                  class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option :value="15">15 min</option>
+                  <option :value="20">20 min</option>
+                  <option :value="30">30 min</option>
+                  <option :value="40">40 min</option>
+                  <option :value="45">45 min</option>
+                  <option :value="60">60 min</option>
+                  <option :value="90">90 min</option>
+                </select>
+              </div>
+              <div class="flex items-end">
+                <p class="text-sm text-gray-600 pb-2">
+                  Fim previsto: <strong>{{ horarioFimCalculado || '—' }}</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Paciente -->
+        <section class="space-y-2" aria-labelledby="agendar-paciente">
+          <h3 id="agendar-paciente" class="text-sm font-semibold text-gray-900">Paciente</h3>
           <div class="flex gap-2 items-start">
             <div class="flex-1 min-w-0">
-              <TypeaheadInput v-model="searchPacientesModal" label="Paciente *"
-                placeholder="Nome ou CPF..."
-                :search-function="buscarPacientes" :selected-item="pacienteSelecionado"
-                :search-on-focus="true" :min-chars="2"
-                :get-item-label="(item) => item.nome" :get-item-subtitle="(item) => {
+              <TypeaheadInput
+                v-model="searchPacientesModal"
+                label="Buscar paciente *"
+                placeholder="Nome ou CPF — clique ou digite para listar"
+                :search-function="buscarPacientes"
+                :selected-item="pacienteSelecionado"
+                :search-on-focus="true"
+                :min-chars="1"
+                :get-item-label="(item) => item.nome"
+                :get-item-subtitle="(item) => {
                   const parts = []
                   if (item.cpf) parts.push(`CPF: ${item.cpf}`)
                   if (item.contato) parts.push(`Tel: ${item.contato}`)
                   return parts.join(' • ')
-                }" :required="!editingAppointment" @select="selecionarPaciente" @clear="limparPaciente" />
+                }"
+                :required="!editingAppointment"
+                @select="selecionarPaciente"
+                @clear="limparPaciente"
+              />
             </div>
-            <button @click="irCadastrarPacienteAntes" type="button"
-              class="min-h-11 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5 text-sm font-medium mt-7 shrink-0"
-              title="Cadastrar novo paciente">
+            <button
+              type="button"
+              class="mt-7 min-h-[42px] px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5 text-sm font-medium flex-shrink-0"
+              title="Cadastrar novo paciente e voltar para agendar"
+              @click="irCadastrarPacienteAntes"
+            >
               <UserPlus class="w-4 h-4" />
               <span class="hidden sm:inline">Novo</span>
             </button>
           </div>
-          <p v-if="pacienteSelecionado?.contato" class="mt-1 text-xs text-gray-500">
+          <p v-if="pacienteSelecionado?.contato" class="text-xs text-gray-500">
             Contato: {{ pacienteSelecionado.contato }}
           </p>
-        </div>
+        </section>
 
-        <div v-if="exigeEscolhaProfissional" class="w-full">
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Profissional *</label>
-          <select
-            v-model="form.doctorId"
-            class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-            required
-            aria-required="true"
-          >
-            <option value="">Selecione a agenda…</option>
-            <option v-for="doctor in listaProfissionais" :key="doctor.id" :value="String(doctor.id)">
-              {{ doctor.name }}
-            </option>
-          </select>
-          <p class="mt-1 text-xs text-gray-500">Com mais de um profissional, escolha de quem é a agenda.</p>
-        </div>
-        <div v-else-if="profissionalUnico" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-          Agenda: <span class="font-medium text-gray-900">{{ profissionalUnico.name }}</span>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <InputData v-model="form.date" label="Data *" :required="true" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Horário *</label>
-            <input
-              type="time"
-              v-model="form.time"
-              :disabled="!form.doctorId || !form.date"
-              class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-              required
-              aria-required="true"
-            />
-            <p class="mt-1 text-[11px] text-gray-500">Livre dentro do expediente — não precisa bater na grade.</p>
-          </div>
-        </div>
-
-        <div v-if="form.doctorId && form.date" class="space-y-1.5">
-          <p class="text-xs font-medium text-gray-600">Sugestões livres</p>
-          <div v-if="loadingHorariosModal" class="text-xs text-gray-500 py-1">Carregando…</div>
-          <div v-else-if="!horariosLivresSugeridos.length" class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-            Sem slots livres na grade — use o horário livre acima.
-          </div>
-          <div v-else class="flex flex-wrap gap-1.5">
-            <button
-              v-for="h in horariosLivresSugeridos"
-              :key="h.horario_inicio"
-              type="button"
-              :class="[
-                'min-h-9 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors',
-                form.time === h.horario_inicio
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-800 border-gray-200 hover:border-gray-400',
-              ]"
-              @click="form.time = h.horario_inicio"
-            >
-              {{ h.horario_inicio }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Avançado (colapsável) -->
-        <button
-          type="button"
-          class="text-sm font-medium text-blue-700 hover:text-blue-900 underline-offset-2 hover:underline"
-          @click="mostrarOpcoesAvancadas = !mostrarOpcoesAvancadas"
-        >
-          {{ mostrarOpcoesAvancadas ? 'Ocultar opções' : 'Mais opções (procedimento, pagamento…)' }}
-        </button>
-
-        <div v-show="mostrarOpcoesAvancadas" class="space-y-4 pt-1 border-t border-gray-100">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="w-full">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Procedimento</label>
-              <select v-model="form.procedimento"
-                class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md text-sm bg-white">
+        <!-- 3. Detalhes -->
+        <section class="space-y-3" aria-labelledby="agendar-detalhes">
+          <h3 id="agendar-detalhes" class="text-sm font-semibold text-gray-900">Detalhes da consulta</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="agendar-procedimento" class="block text-sm font-medium text-gray-700 mb-2">Procedimento *</label>
+              <select
+                id="agendar-procedimento"
+                v-model="form.procedimento"
+                class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500"
+                required
+              >
                 <option v-for="procedimento in procedimentos" :key="procedimento" :value="procedimento">
                   {{ procedimento }}
                 </option>
               </select>
             </div>
-            <div class="w-full">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Prioridade</label>
+            <div>
+              <label for="agendar-prioridade" class="block text-sm font-medium text-gray-700 mb-2">Prioridade</label>
               <select
+                id="agendar-prioridade"
                 v-model="form.prioridade"
                 :disabled="editingAppointment && editingAppointment.prioridade === 'alta'"
                 :class="[
-                  'block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md text-sm',
-                  editingAppointment && editingAppointment.prioridade === 'alta'
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : 'bg-white'
-                ]">
+                  'block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500',
+                  editingAppointment && editingAppointment.prioridade === 'alta' ? 'bg-gray-100 text-gray-500' : 'bg-white'
+                ]"
+              >
                 <option v-for="prioridade in prioridadesFiltradas" :key="prioridade.value" :value="prioridade.value">
                   {{ prioridade.label }}
                 </option>
@@ -811,10 +882,13 @@
             </div>
           </div>
 
-          <div class="w-full">
-            <label class="block text-sm font-medium text-gray-700 mb-1.5">Convênio / parceiro</label>
-            <select v-model="form.parceiro_id"
-              class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md text-sm bg-white">
+          <div>
+            <label for="agendar-parceiro" class="block text-sm font-medium text-gray-700 mb-2">Convênio / Parceiro</label>
+            <select
+              id="agendar-parceiro"
+              v-model="form.parceiro_id"
+              class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500"
+            >
               <option value="">Particular</option>
               <option v-for="parceiro in parceiros" :key="parceiro.id" :value="parceiro.id">
                 {{ parceiro.nome }}
@@ -822,31 +896,40 @@
             </select>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="w-full">
-              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2 min-h-11">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2 min-h-[28px]">
                 <input type="checkbox" v-model="form.pago" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
                 Consulta paga
               </label>
-              <select v-model="form.forma_pagamento" :disabled="!form.pago"
-                class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md text-sm bg-white disabled:bg-gray-100 disabled:text-gray-500">
+              <select
+                v-model="form.forma_pagamento"
+                :disabled="!form.pago"
+                class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm bg-white disabled:bg-gray-100 focus:ring-2 focus:ring-blue-500"
+              >
                 <option value="">Forma de pagamento</option>
                 <option v-for="forma in formasPagamento" :key="forma.value" :value="forma.value">
                   {{ forma.label }}
                 </option>
               </select>
             </div>
-            <div class="w-full">
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">Valor (R$)</label>
-              <input type="number" step="0.01" min="0" v-model="form.valor" :disabled="!form.pago"
+            <div>
+              <label for="agendar-valor" class="block text-sm font-medium text-gray-700 mb-2">Valor (R$)</label>
+              <input
+                id="agendar-valor"
+                type="number"
+                step="0.01"
+                min="0"
+                v-model="form.valor"
+                :disabled="!form.pago"
                 placeholder="0,00"
-                class="block w-full min-h-11 px-3 py-2 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 disabled:text-gray-500" />
+                class="block w-full min-h-[42px] px-3 py-2 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
 
-          <BaseTextarea v-model="form.notes" label="Observações" placeholder="Observações sobre a consulta..."
-            :rows="2" />
-        </div>
+          <BaseTextarea v-model="form.notes" label="Observações" placeholder="Observações sobre a consulta..." :rows="2" />
+        </section>
       </div>
     </ActionModal>
 
@@ -948,15 +1031,12 @@
       @cancel="fecharModalPausa"
     >
       <div class="space-y-3">
-        <div v-if="exigeEscolhaProfissional">
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Profissional *</label>
-          <select v-model="formPausa.doctorId" class="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+          <select v-model="formPausa.doctorId" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
             <option value="">Selecione…</option>
-            <option v-for="d in listaProfissionais" :key="d.id" :value="String(d.id)">{{ d.name }}</option>
+            <option v-for="d in doctors" :key="d.id" :value="String(d.id)">{{ d.name }}</option>
           </select>
-        </div>
-        <div v-else-if="profissionalUnico" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-          Agenda: <span class="font-medium">{{ profissionalUnico.name }}</span>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Data *</label>
@@ -1002,13 +1082,6 @@ import { useSidebarLayout } from '../../composables/useSidebarLayout.js'
 import { urlPreCadastro } from '../../utils/fluxoAtendimento.js'
 import { isHorarioNoPassado as horarioJaPassou } from '../../utils/agendaDatas.js'
 import { MAX_PROFISSIONAIS_PANORAMA } from '../../utils/agendaPanorama.js'
-import {
-  mapListaProfissionais,
-  resolverProfissionalUnico,
-  resolverProfissionalContexto,
-  exigeEscolhaProfissional as precisaEscolherProfissional,
-  filtrarHorariosLivres,
-} from '../../utils/agendaProfissional.js'
 import AgendaSemanaPanorama from '../../components/agenda/AgendaSemanaPanorama.vue'
 import AgendaMesPanorama from '../../components/agenda/AgendaMesPanorama.vue'
 import AgendaPanoramaDrawer from '../../components/agenda/AgendaPanoramaDrawer.vue'
@@ -1071,16 +1144,18 @@ export default {
         motivo: '',
       },
       showModal: false,
+      usarHorarioLivre: false,
       editingAppointment: null,
       showModalChegada: false,
       showModalSemPaciente: false,
-      mostrarOpcoesAvancadas: false,
+      showModalPacienteCadastrado: false,
       pendingOpen: null,
       consultaParaConfirmarChegada: null,
       loading: false,
       error: null,
       loadingHorariosModal: false,
       horariosDisponiveisModal: [],
+      profissionaisAtivos: [],
       parceiros: [],
       profissionaisModal: [],
       savingAppointment: false,
@@ -1096,6 +1171,7 @@ export default {
         phone: '',
         date: '',
         time: '',
+        duracaoMinutos: 30,
         procedimento: 'Consulta',
         prioridade: 'normal',
         parceiro_id: '',
@@ -1123,28 +1199,6 @@ export default {
     }
   },
   computed: {
-    listaProfissionais() {
-      return mapListaProfissionais(this.profissionais)
-    },
-    profissionalUnico() {
-      return resolverProfissionalUnico(this.profissionais)
-    },
-    exigeEscolhaProfissional() {
-      return precisaEscolherProfissional(this.profissionais)
-    },
-    horariosLivresSugeridos() {
-      return filtrarHorariosLivres(this.horariosDisponiveisModal)
-    },
-    subtituloModalConsulta() {
-      if (this.editingAppointment) return 'Atualize os dados da consulta'
-      if (this.profissionalUnico) {
-        return `Agendando na agenda de ${this.profissionalUnico.name}`
-      }
-      if (this.exigeEscolhaProfissional) {
-        return 'Escolha o profissional, paciente, data e horário'
-      }
-      return 'Selecione o paciente e preencha data e horário'
-    },
     mostrarAvisoSemConfiguracao() {
       return this.temConfiguracao === false && !this.error && !this.loading
     },
@@ -1167,11 +1221,52 @@ export default {
       })
     },
     doctors() {
-      const profsToUse = this.showModal && this.profissionaisModal?.length
-        ? this.profissionaisModal
-        : this.profissionais
+      const profsToUse = this.showModal ? this.profissionaisModal : this.profissionais
 
-      return mapListaProfissionais(profsToUse)
+      if (!profsToUse || !Array.isArray(profsToUse)) return [];
+
+      return profsToUse.map(prof => ({
+        id: prof.id,
+        name: prof.name,
+        specialty: prof.especialidade || prof.profile?.name || 'Sem especialidade',
+        crm: prof.crm || 'CRM não informado',
+        email: prof.email
+      }))
+    },
+    medicosParaAgendar() {
+      const fonte = (this.profissionaisAtivos && this.profissionaisAtivos.length)
+        ? this.profissionaisAtivos
+        : (this.profissionaisModal.length ? this.profissionaisModal : this.profissionais)
+      if (!fonte || !Array.isArray(fonte)) return []
+      return fonte.map((prof) => ({
+        id: prof.id,
+        name: prof.name,
+        specialty: prof.especialidade || 'Sem especialidade',
+        crm: prof.crm || '',
+        email: prof.email,
+      }))
+    },
+    horariosLivresModal() {
+      const lista = this.horariosDisponiveisModal || []
+      const livres = lista.filter((h) => h.disponivel === true || (h.disponivel !== false && !h.ocupado))
+      // Em edição, mantém o horário atual mesmo se ocupado por esta consulta
+      if (this.editingAppointment && this.form.time) {
+        const atual = lista.find((h) => h.horario_inicio === this.form.time)
+        if (atual && !livres.some((h) => h.horario_inicio === atual.horario_inicio)) {
+          return [atual, ...livres]
+        }
+      }
+      return livres
+    },
+    horarioFimCalculado() {
+      if (!this.form.time) return ''
+      const [h, m] = String(this.form.time).substring(0, 5).split(':').map(Number)
+      if (Number.isNaN(h) || Number.isNaN(m)) return ''
+      const inicio = new Date()
+      inicio.setHours(h, m, 0, 0)
+      const duracao = Number(this.form.duracaoMinutos) || this.configuracao?.duracao_consulta || 30
+      const fim = new Date(inicio.getTime() + duracao * 60000)
+      return `${String(fim.getHours()).padStart(2, '0')}:${String(fim.getMinutes()).padStart(2, '0')}`
     },
     timeSlots() {
       if (!this.configuracao || !this.configuracao.dia_funcionamento) {
@@ -1358,44 +1453,15 @@ export default {
       this.fecharAgendaExpandida()
     },
     ensurePanoramaDoctors() {
-      const list = this.listaProfissionais
+      if (this.panoramaDoctorIds.length) return
+      const list = this.doctors || []
       if (!list.length) return
-
-      // 1 profissional: sempre o padrão — sem perguntar
-      if (list.length === 1) {
-        const id = String(list[0].id)
-        this.panoramaDoctorIds = [id]
-        this.selectedDoctor = id
-        return
-      }
-
-      if (this.panoramaDoctorIds.length) {
-        if (this.selectedDoctor && !this.panoramaDoctorIds.map(String).includes(String(this.selectedDoctor))) {
-          this.selectedDoctor = this.panoramaDoctorIds[0]
-        }
-        return
-      }
-
       this.panoramaDoctorIds = list.slice(0, this.maxPanoramaDoctors).map((d) => String(d.id))
       if (!this.selectedDoctor && this.panoramaDoctorIds[0]) {
         this.selectedDoctor = this.panoramaDoctorIds[0]
       }
     },
-    profissionalContextoId(preferido = '') {
-      return resolverProfissionalContexto({
-        lista: this.profissionais,
-        preferido,
-        selectedDoctor: this.selectedDoctor,
-        panoramaIds: this.panoramaDoctorIds,
-      })
-    },
     onPanoramaDoctorsChange(ids) {
-      if (this.profissionalUnico) {
-        const id = String(this.profissionalUnico.id)
-        this.panoramaDoctorIds = [id]
-        this.selectedDoctor = id
-        return
-      }
       this.panoramaDoctorIds = (ids || []).map(String).slice(0, this.maxPanoramaDoctors)
       if (this.panoramaDoctorIds.length && !this.panoramaDoctorIds.includes(String(this.selectedDoctor))) {
         this.selectedDoctor = this.panoramaDoctorIds[0]
@@ -1442,24 +1508,20 @@ export default {
       this.panoramaDrawerOpen = true
     },
     async onPanoramaSelectSlot({ date, time }) {
-      const doctorId = this.profissionalContextoId()
-      if (!doctorId && this.exigeEscolhaProfissional) {
-        // Abre o modal pedindo o profissional — não aborta o fluxo
-        this.fecharPanoramaDrawer()
-        if (date) this.selectedDate = date
-        await this.abrirModalConsulta({ doctorId: '', time: time || '', date })
-        toastWarning('Selecione o profissional da agenda', { autoClose: 3000 })
-        return
-      }
+      await this.carregarProfissionaisAtivos()
+      const doctorId = this.selectedDoctor
+        || this.panoramaDoctorIds[0]
+        || (this.profissionaisAtivos[0] && String(this.profissionaisAtivos[0].id))
+        || ''
       if (!doctorId) {
-        toastWarning('Cadastre um profissional para agendar', { autoClose: 3500 })
+        toastWarning('Cadastre um profissional ativo (perfil Profissional) para agendar', { autoClose: 4000 })
         return
       }
       if (!date || !time) return
       this.fecharPanoramaDrawer()
       this.selectedDate = date
       this.selectedDoctor = doctorId
-      await this.abrirModalConsulta({ doctorId, time, date })
+      await this.openModal(time, doctorId)
     },
     onPanoramaDrawerEditar() {
       const consulta = this.panoramaDrawerConsulta
@@ -1530,9 +1592,8 @@ export default {
       }
     },
     abrirModalPausa() {
-      const doctorId = this.profissionalContextoId()
       this.formPausa = {
-        doctorId,
+        doctorId: String(this.selectedDoctor || this.panoramaDoctorIds[0] || ''),
         date: this.selectedDate || this.obterDataAtual(),
         time: '',
         duracao: 60,
@@ -1545,15 +1606,9 @@ export default {
       this.salvandoPausa = false
     },
     async salvarPausa() {
-      let { doctorId, date, time, duracao, motivo } = this.formPausa
-      doctorId = doctorId || this.profissionalContextoId()
+      const { doctorId, date, time, duracao, motivo } = this.formPausa
       if (!doctorId || !date || !time || !motivo?.trim()) {
-        toastWarning(
-          this.exigeEscolhaProfissional
-            ? 'Preencha profissional, data, horário e motivo'
-            : 'Preencha data, horário e motivo',
-          { autoClose: 3500 }
-        )
+        toastWarning('Preencha profissional, data, horário e motivo', { autoClose: 3500 })
         return
       }
       const [h, m] = time.split(':').map(Number)
@@ -1818,27 +1873,43 @@ export default {
       return `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
     },
     async openModal(time = '', doctorId = '') {
-      // 1 profissional → padrão silencioso; N → só usa se já houver contexto explícito
-      let selectedDoctorId = ''
-      if (this.profissionalUnico) {
-        selectedDoctorId = String(this.profissionalUnico.id)
-      } else if (doctorId) {
-        selectedDoctorId = String(doctorId)
-      } else if (this.selectedDoctor) {
-        selectedDoctorId = String(this.selectedDoctor)
-      }
+      await this.carregarProfissionaisAtivos()
+      const selectedDoctorId = String(
+        doctorId
+        || this.selectedDoctor
+        || this.panoramaDoctorIds[0]
+        || (this.profissionaisAtivos[0] && this.profissionaisAtivos[0].id)
+        || ''
+      )
 
       this.pendingOpen = {
         doctorId: selectedDoctorId,
         time: time || '',
         date: this.selectedDate,
       }
+
+      // Fluxo direto: sem wizard — a recepção agenda em um passo
       await this.abrirModalConsulta(this.pendingOpen)
+    },
+
+    async pacienteJaCadastrado() {
+      this.showModalPacienteCadastrado = false
+      await this.abrirModalConsulta(this.pendingOpen || {})
+    },
+
+    fecharPerguntaPaciente() {
+      this.showModalPacienteCadastrado = false
+      this.pendingOpen = null
+    },
+
+    pacienteNaoCadastrado() {
+      this.showModalPacienteCadastrado = false
+      this.irCadastrarPacienteAntes()
     },
 
     irCadastrarPacienteAntes() {
       const ctx = this.pendingOpen || {
-        doctorId: this.form.doctorId || this.profissionalContextoId(),
+        doctorId: this.form.doctorId || this.selectedDoctor || '',
         time: this.form.time || '',
         date: this.form.date || this.selectedDate || '',
       }
@@ -1851,27 +1922,33 @@ export default {
       if (ctx.doctorId) params.set('doctorId', String(ctx.doctorId))
 
       this.showModal = false
+      this.showModalPacienteCadastrado = false
       this.$router.push(`/pacientes/cadastro?${params.toString()}`)
     },
 
     async abrirModalConsulta({ doctorId = '', time = '', date = '', paciente = null } = {}) {
-      let selectedDoctorId = ''
-      if (this.profissionalUnico) {
-        selectedDoctorId = String(this.profissionalUnico.id)
-      } else if (doctorId) {
-        selectedDoctorId = String(doctorId)
+      await this.carregarProfissionaisAtivos()
+
+      let selectedDoctorId = String(doctorId || this.selectedDoctor || '')
+      if (!selectedDoctorId && this.profissionaisAtivos.length) {
+        selectedDoctorId = String(this.profissionaisAtivos[0].id)
+      }
+      if (!selectedDoctorId && this.panoramaDoctorIds[0]) {
+        selectedDoctorId = String(this.panoramaDoctorIds[0])
       }
 
-      const dataConsulta = date || this.selectedDate
-      const horarioSelecionado = time
+      const dataConsulta = date || this.selectedDate || this.obterDataAtual()
+      const horarioSelecionado = time ? String(time).substring(0, 5) : ''
+      const duracaoPadrao = Number(this.configuracao?.duracao_consulta) || 30
 
-      this.mostrarOpcoesAvancadas = false
+      this.usarHorarioLivre = false
       this.form = {
-        doctorId: selectedDoctorId ? String(selectedDoctorId) : '',
+        doctorId: selectedDoctorId,
         patient: paciente?.nome || '',
         phone: paciente?.contato || '',
         date: dataConsulta,
         time: horarioSelecionado,
+        duracaoMinutos: duracaoPadrao,
         procedimento: 'Consulta',
         prioridade: 'normal',
         parceiro_id: '',
@@ -1886,23 +1963,62 @@ export default {
       this.searchPacientesModal = paciente?.nome || ''
       this.pacienteSelecionado = paciente || null
 
-      if (selectedDoctorId) {
-        this.selectedDoctor = String(selectedDoctorId)
-      }
-
       if (dataConsulta) {
         if (dataConsulta !== this.selectedDate) {
           this.selectedDate = dataConsulta
         }
         const dadosAgenda = await this.carregarAgendaParaData(dataConsulta)
         this.profissionaisModal = dadosAgenda.profissionais
+        if (dadosAgenda.configuracao?.duracao_consulta) {
+          this.form.duracaoMinutos = Number(dadosAgenda.configuracao.duracao_consulta) || duracaoPadrao
+        }
 
-        if (selectedDoctorId && dadosAgenda.configuracao?.dia_funcionamento) {
+        if (selectedDoctorId) {
           await this.buscarHorariosDisponiveisModal(selectedDoctorId, dataConsulta)
           if (horarioSelecionado) {
-            this.form.time = horarioSelecionado
+            const livre = (this.horariosDisponiveisModal || []).find(
+              (h) => h.horario_inicio === horarioSelecionado && (h.disponivel || !h.ocupado)
+            )
+            if (livre) {
+              this.selecionarHorarioSugestao(livre)
+            } else {
+              // Slot clicado ocupado ou fora da grade → horário livre
+              this.usarHorarioLivre = true
+              this.form.time = horarioSelecionado
+            }
           }
         }
+      }
+    },
+
+    ativarHorarioLivre() {
+      this.usarHorarioLivre = true
+      if (!this.form.duracaoMinutos) {
+        this.form.duracaoMinutos = Number(this.configuracao?.duracao_consulta) || 30
+      }
+    },
+
+    selecionarHorarioSugestao(horario) {
+      this.usarHorarioLivre = false
+      this.form.time = horario.horario_inicio
+      if (horario.horario_inicio && horario.horario_fim) {
+        const [hi, mi] = horario.horario_inicio.split(':').map(Number)
+        const [hf, mf] = horario.horario_fim.split(':').map(Number)
+        const mins = (hf * 60 + mf) - (hi * 60 + mi)
+        if (mins > 0) this.form.duracaoMinutos = mins
+      }
+    },
+
+    async carregarProfissionaisAtivos() {
+      if (this.profissionaisAtivos.length) return
+      try {
+        const response = await axios.get('/consultas/profissionais')
+        if (response.data.success) {
+          this.profissionaisAtivos = response.data.data || []
+        }
+      } catch (err) {
+        console.error('Erro ao listar profissionais:', err)
+        this.profissionaisAtivos = []
       }
     },
 
@@ -1958,6 +2074,7 @@ export default {
               time: typeof consulta.horario_inicio === 'string'
                 ? consulta.horario_inicio.substring(0, 5)
                 : consulta.horario_inicio,
+              duracaoMinutos: this.calcularDuracaoMinutos(consulta.horario_inicio, consulta.horario_fim),
               procedimento: consulta.procedimento || '',
               prioridade: consulta.prioridade || 'normal',
               parceiro_id: consulta.parceiro_id || '',
@@ -1989,11 +2106,16 @@ export default {
               situacao_id: consulta.situacao_id || null
             }
 
+            await this.carregarProfissionaisAtivos()
             this.showModal = true
 
             if (this.form.doctorId && this.form.date) {
               await this.buscarHorariosDisponiveisModal(this.form.doctorId, this.form.date)
               this.form.time = this.editingAppointment.time
+              const naGrade = (this.horariosDisponiveisModal || []).some(
+                (h) => h.horario_inicio === this.form.time
+              )
+              this.usarHorarioLivre = !naGrade
             }
             return
           }
@@ -2005,15 +2127,35 @@ export default {
       this.form = {
         ...appointment,
         date: dataFormatada,
-        doctorId: appointment.doctorId?.toString() || ''
+        doctorId: appointment.doctorId?.toString() || '',
+        duracaoMinutos: this.calcularDuracaoMinutos(appointment.time, appointment.horario_fim)
+          || Number(this.configuracao?.duracao_consulta)
+          || 30,
       }
       this.editingAppointment = { ...appointment, date: dataFormatada }
+      await this.carregarProfissionaisAtivos()
       this.showModal = true
 
       if (this.form.doctorId && this.form.date) {
         await this.buscarHorariosDisponiveisModal(this.form.doctorId, this.form.date)
         this.form.time = appointment.time || ''
+        const naGrade = (this.horariosDisponiveisModal || []).some(
+          (h) => h.horario_inicio === this.form.time
+        )
+        this.usarHorarioLivre = !naGrade
       }
+    },
+    calcularDuracaoMinutos(inicio, fim) {
+      if (!inicio || !fim) return Number(this.configuracao?.duracao_consulta) || 30
+      const si = String(inicio).substring(0, 5)
+      const sf = String(fim).substring(0, 5)
+      const [hi, mi] = si.split(':').map(Number)
+      const [hf, mf] = sf.split(':').map(Number)
+      if ([hi, mi, hf, mf].some((n) => Number.isNaN(n))) {
+        return Number(this.configuracao?.duracao_consulta) || 30
+      }
+      const mins = (hf * 60 + mf) - (hi * 60 + mi)
+      return mins > 0 ? mins : (Number(this.configuracao?.duracao_consulta) || 30)
     },
     async editAppointmentFromHorario(consultaData) {
       // Não permitir editar consultas em atendimento ou encerradas
@@ -2044,6 +2186,7 @@ export default {
             time: typeof consulta.horario_inicio === 'string'
               ? consulta.horario_inicio.substring(0, 5)
               : consulta.horario_inicio,
+            duracaoMinutos: this.calcularDuracaoMinutos(consulta.horario_inicio, consulta.horario_fim),
             procedimento: consulta.procedimento || '',
             prioridade: consulta.prioridade || 'normal',
             parceiro_id: consulta.parceiro_id || '',
@@ -2076,11 +2219,16 @@ export default {
             situacao_id: consulta.situacao_id || null
           }
 
+          await this.carregarProfissionaisAtivos()
           this.showModal = true
 
           if (this.form.doctorId && this.form.date) {
             await this.buscarHorariosDisponiveisModal(this.form.doctorId, this.form.date)
             this.form.time = this.editingAppointment.time
+            const naGrade = (this.horariosDisponiveisModal || []).some(
+              (h) => h.horario_inicio === this.form.time
+            )
+            this.usarHorarioLivre = !naGrade
           }
         }
       } catch (err) {
@@ -2120,7 +2268,22 @@ export default {
     closeModal() {
       this.showModal = false
       this.editingAppointment = null
-      this.form = { doctorId: '', patient: '', phone: '', date: '', time: '', procedimento: '', prioridade: 'normal', parceiro_id: '', pago: false, forma_pagamento: '', valor: '', notes: '' }
+      this.usarHorarioLivre = false
+      this.form = {
+        doctorId: '',
+        patient: '',
+        phone: '',
+        date: '',
+        time: '',
+        duracaoMinutos: 30,
+        procedimento: 'Consulta',
+        prioridade: 'normal',
+        parceiro_id: '',
+        pago: false,
+        forma_pagamento: '',
+        valor: '',
+        notes: '',
+      }
       this.horariosDisponiveisModal = []
       this.profissionaisModal = []
 
@@ -2195,15 +2358,9 @@ export default {
         this.savingAppointment = true
 
         if (!this.form.doctorId) {
-          this.form.doctorId = this.profissionalContextoId()
-        }
-        if (!this.form.doctorId) {
-          toastWarning(
-            this.exigeEscolhaProfissional
-              ? 'Selecione o profissional da agenda'
-              : 'Cadastre um profissional para agendar',
-            { autoClose: 3000 }
-          )
+          toastWarning('Selecione um médico', {
+            autoClose: 3000,
+          })
           this.savingAppointment = false
           return
         }
@@ -2217,7 +2374,7 @@ export default {
         }
 
         if (!this.form.time) {
-          toastWarning('Informe o horário da consulta', {
+          toastWarning('Selecione um horário', {
             autoClose: 3000,
           })
           this.savingAppointment = false
@@ -2225,7 +2382,11 @@ export default {
         }
 
         if (!this.form.procedimento) {
-          this.form.procedimento = 'Consulta'
+          toastWarning('Selecione um procedimento', {
+            autoClose: 3000,
+          })
+          this.savingAppointment = false
+          return
         }
 
         if (this.form.pago && !this.form.forma_pagamento) {
@@ -2266,20 +2427,23 @@ export default {
     },
     async persistirConsulta() {
       try {
-        const [hora, minuto] = this.form.time.split(':')
+        const horarioInicio = String(this.form.time).substring(0, 5)
+        const [hora, minuto] = horarioInicio.split(':')
         const inicio = new Date()
-        inicio.setHours(parseInt(hora), parseInt(minuto), 0, 0)
+        inicio.setHours(parseInt(hora, 10), parseInt(minuto, 10), 0, 0)
 
-        const duracao = this.configuracao?.duracao_consulta || 30
+        const duracao = Number(this.form.duracaoMinutos)
+          || Number(this.configuracao?.duracao_consulta)
+          || 30
         const fim = new Date(inicio.getTime() + duracao * 60000)
-        const horarioFim = `${fim.getHours().toString().padStart(2, '0')}:${fim.getMinutes().toString().padStart(2, '0')}`
+        const horarioFim = `${String(fim.getHours()).padStart(2, '0')}:${String(fim.getMinutes()).padStart(2, '0')}`
 
         const dadosConsulta = {
-          user_id: parseInt(this.form.doctorId),
+          user_id: parseInt(this.form.doctorId, 10),
           paciente_id: this.pacienteSelecionado?.id || null,
           procedimento: this.form.procedimento,
           data: this.form.date,
-          horario_inicio: this.form.time,
+          horario_inicio: horarioInicio,
           horario_fim: horarioFim,
           prioridade: this.form.prioridade,
           parceiro_id: this.form.parceiro_id || null,
@@ -2554,7 +2718,7 @@ export default {
     'form.doctorId'(newDoctorId, oldDoctorId) {
       if (this.showModal && newDoctorId && this.form.date) {
         this.buscarHorariosDisponiveisModal(newDoctorId, this.form.date)
-        if (oldDoctorId && oldDoctorId !== newDoctorId) {
+        if (oldDoctorId && oldDoctorId !== newDoctorId && !this.usarHorarioLivre) {
           this.form.time = ''
         }
       }
@@ -2565,21 +2729,19 @@ export default {
           const dadosAgenda = await this.carregarAgendaParaData(newDate)
           this.profissionaisModal = dadosAgenda.profissionais
 
-          if (this.form.doctorId && dadosAgenda.configuracao?.dia_funcionamento) {
-            await this.buscarHorariosDisponiveisModal(this.form.doctorId, newDate)
-          } else if (!this.form.doctorId && this.profissionalUnico && dadosAgenda.configuracao?.dia_funcionamento) {
-            this.form.doctorId = String(this.profissionalUnico.id)
+          if (dadosAgenda.configuracao?.duracao_consulta && !this.editingAppointment) {
+            this.form.duracaoMinutos = Number(dadosAgenda.configuracao.duracao_consulta) || this.form.duracaoMinutos
+          }
+
+          if (this.form.doctorId) {
             await this.buscarHorariosDisponiveisModal(this.form.doctorId, newDate)
           } else {
-            if (oldDate && oldDate !== newDate) {
+            if (oldDate && oldDate !== newDate && !this.usarHorarioLivre) {
               this.form.time = ''
             }
             this.horariosDisponiveisModal = []
           }
-
-          if (!dadosAgenda.configuracao?.dia_funcionamento && this.exigeEscolhaProfissional) {
-            this.form.doctorId = ''
-          }
+          // Não zera o profissional: a recepção pode manter a escolha e usar horário livre
         }
       }
     },
@@ -2587,6 +2749,7 @@ export default {
   async mounted() {
     this.selectedDate = this.obterDataAtual()
     window.addEventListener('keydown', this.onAgendaExpandKeydown)
+    await this.carregarProfissionaisAtivos()
     await this.carregarAgenda()
     await this.carregarParceiros()
     await this.retomarAgendamentoAposCadastro()

@@ -62,25 +62,25 @@ Sem configuração ativa, a agenda não gera slots.
    **Pacientes → Cadastro** (`/pacientes/cadastro`)
 2. Preencha o mínimo:
    - Nome completo
-   - Data de nascimento
-   - Telefone
-3. Opcionais: CPF, RG, sexo, endereço, e-mail, responsável, observações
+   - CPF
+3. Opcionais: data de nascimento, telefone, RG, sexo, endereço, e-mail, responsável, observações
 4. Salve
 
-Também é possível cadastrar a partir do modal de **Nova consulta** na agenda (botão de novo paciente).
+Também é possível cadastrar a partir do modal de **Nova consulta** na agenda (botão **Novo**).
 
 ### 3.3 Agendar consulta
 
 1. Abra **Agenda**
 2. Escolha **Dia / Semana / Mês**
-3. No dia: clique em **Agendar** em um horário livre (ou use o botão de nova consulta)
-4. Selecione:
-   - Profissional
-   - Paciente (busca)
-   - Data/hora
-   - Procedimento, prioridade, parceiro (convênio), observações
-   - Se já pagou: marque **Pago**, forma de pagamento e valor
+3. Clique em **Nova consulta**, ou em um horário livre / célula da semana
+4. No modal (um passo só):
+   - **Data** e **Profissional** (preenchidos automaticamente quando possível)
+   - **Horário**: use as **Sugestões** da grade (só slots livres) **ou** **Horário livre** para encaixe em qualquer horário dentro do expediente
+   - **Paciente** (busca por nome/CPF) ou **Novo** para cadastrar e voltar
+   - Procedimento, prioridade, parceiro, pagamento e observações
 5. Salve
+
+O profissional precisa existir com perfil **Profissional** ativo. A configuração de agendamentos define o expediente e a grade de sugestões — a recepção **não** fica presa só aos slots: horário livre cobre encaixes.
 
 **Formas de pagamento:** dinheiro, PIX, cartão crédito/débito, convênio, transferência, outro.
 
