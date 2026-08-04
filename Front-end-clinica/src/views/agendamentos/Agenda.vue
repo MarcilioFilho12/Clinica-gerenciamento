@@ -1,6 +1,12 @@
 <template>
-  <div class="agenda-page w-full min-w-0">
+  <div
+    class="agenda-page w-full min-w-0"
+    :class="{ 'agenda-page--expanded': agendaExpanded }"
+    :aria-modal="agendaExpanded ? 'true' : undefined"
+    :role="agendaExpanded ? 'dialog' : undefined"
+  >
     <PageHeader
+      v-show="!agendaExpanded"
       title="Agenda"
       description="Planejamento visual da clínica — pacientes, horários e fluxo"
       :icon="Calendar"
@@ -13,11 +19,31 @@
     />
 
     <div
+      v-if="agendaExpanded"
+      class="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-gray-200"
+    >
+      <div>
+        <h1 class="text-lg font-semibold text-gray-900">Agenda — tela ampliada</h1>
+        <p class="text-xs text-gray-500">Mesmos filtros e ações; Esc ou o botão para sair</p>
+      </div>
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+        title="Sair da tela ampliada (Esc)"
+        @click="fecharAgendaExpandida"
+      >
+        <Minimize2 class="w-4 h-4" />
+        Sair
+      </button>
+    </div>
+
+    <div
       :class="[
         'agenda-workspace w-full min-w-0',
         'flex flex-col lg:grid lg:items-start gap-3',
         'transition-[gap] duration-[250ms] ease-in-out',
         isSidebarCompact ? 'lg:gap-4' : 'lg:gap-3',
+        agendaExpanded ? 'agenda-workspace--expanded' : '',
       ]"
     >
       <AgendaCalendarioSidebar
@@ -76,6 +102,16 @@
                 Mês
               </button>
             </div>
+            <button
+              type="button"
+              class="p-2 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+              :title="agendaExpanded ? 'Sair da tela ampliada' : 'Ampliar agenda'"
+              :aria-pressed="agendaExpanded"
+              @click="toggleAgendaExpandida"
+            >
+              <Minimize2 v-if="agendaExpanded" class="w-4 h-4" />
+              <Maximize2 v-else class="w-4 h-4" />
+            </button>
             <button
               type="button"
               @click="openModal()"
@@ -964,7 +1000,7 @@
 </template>
 
 <script>
-import { Calendar, Clock, User, Phone, Plus, Search, Edit, Check, X, UserCheck, UserPlus, Info, ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { Calendar, Clock, User, Phone, Plus, Search, Edit, Check, X, UserCheck, UserPlus, Info, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-vue-next'
 import axios from '../../services/axios.js'
 import { toastSuccess, toastError, toastWarning } from '../../composables/useToast.js'
 import { useSidebarLayout } from '../../composables/useSidebarLayout.js'
@@ -993,6 +1029,8 @@ export default {
     Info,
     ChevronLeft,
     ChevronRight,
+    Maximize2,
+    Minimize2,
     AgendaSemanaPanorama,
     AgendaMesPanorama,
     AgendaPanoramaDrawer,
@@ -1012,6 +1050,7 @@ export default {
       panoramaDoctorIds: [],
       maxPanoramaDoctors: MAX_PROFISSIONAIS_PANORAMA,
       viewMode: 'semana',
+      agendaExpanded: false,
       periodoConsultas: [],
       panoramaDrawerOpen: false,
       panoramaDrawerCard: null,
@@ -1278,6 +1317,27 @@ export default {
       this.viewMode = mode
       this.ensurePanoramaDoctors()
       this.carregarAgenda()
+    },
+    toggleAgendaExpandida() {
+      if (this.agendaExpanded) {
+        this.fecharAgendaExpandida()
+      } else {
+        this.abrirAgendaExpandida()
+      }
+    },
+    abrirAgendaExpandida() {
+      this.agendaExpanded = true
+      document.body.style.overflow = 'hidden'
+    },
+    fecharAgendaExpandida() {
+      this.agendaExpanded = false
+      document.body.style.overflow = ''
+    },
+    onAgendaExpandKeydown(event) {
+      if (event.key !== 'Escape' || !this.agendaExpanded) return
+      // Não fecha se um modal/drawer de ação estiver no foco operacional
+      if (this.showModal || this.panoramaDrawerOpen) return
+      this.fecharAgendaExpandida()
     },
     ensurePanoramaDoctors() {
       if (this.panoramaDoctorIds.length) return
@@ -2459,10 +2519,17 @@ export default {
   },
   async mounted() {
     this.selectedDate = this.obterDataAtual()
+    window.addEventListener('keydown', this.onAgendaExpandKeydown)
     await this.carregarAgenda()
     await this.carregarParceiros()
     await this.retomarAgendamentoAposCadastro()
-  }
+  },
+  beforeUnmount() {
+    window.removeEventListener('keydown', this.onAgendaExpandKeydown)
+    if (this.agendaExpanded) {
+      document.body.style.overflow = ''
+    }
+  },
 }
 </script>
 
@@ -2472,9 +2539,23 @@ export default {
   max-width: none;
 }
 
+.agenda-page--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #f8fafc;
+  padding: 0.75rem 1rem 1rem;
+  overflow: auto;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
 @media (min-width: 1024px) {
   .agenda-workspace {
     grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .agenda-workspace--expanded {
+    grid-template-columns: 260px minmax(0, 1fr);
   }
 }
 
@@ -2488,6 +2569,11 @@ export default {
     width: 280px;
     max-width: 280px;
   }
+
+  .agenda-workspace--expanded .agenda-side-panel {
+    width: 260px;
+    max-width: 260px;
+  }
 }
 
 .agenda-calendar-fill {
@@ -2498,6 +2584,15 @@ export default {
 .agenda-calendar-fill :deep(.agenda-mes-root) {
   height: 100%;
   min-height: calc(100vh - 13.5rem);
+}
+
+.agenda-page--expanded .agenda-calendar-fill,
+.agenda-page--expanded .agenda-calendar-fill :deep(.agenda-mes-root) {
+  min-height: calc(100vh - 9rem);
+}
+
+.agenda-page--expanded .agenda-calendar-host {
+  min-height: calc(100vh - 11rem);
 }
 
 select {
