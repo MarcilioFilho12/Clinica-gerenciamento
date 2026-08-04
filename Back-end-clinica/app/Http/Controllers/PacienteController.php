@@ -23,9 +23,9 @@ class PacienteController extends Controller
         try {
             $request->validate([
                 'nome' => 'required|string|max:255',
-                'data_nascimento' => 'required|date',
-                'contato' => 'required|string|max:20',
-                'cpf' => 'nullable|string|max:14',
+                'cpf' => 'required|string|max:14',
+                'data_nascimento' => 'nullable|date',
+                'contato' => 'nullable|string|max:20',
                 'email' => 'nullable|email|max:255',
                 'sexo' => 'nullable|in:M,F,Outro',
                 'ocupacao' => 'nullable|string|max:255',
@@ -40,9 +40,9 @@ class PacienteController extends Controller
 
             $cadastro = Cadastro::create([
                 'nome' => $request->nome,
-                'data_nascimento' => $request->data_nascimento,
+                'data_nascimento' => $request->data_nascimento ?: null,
                 'sexo' => $request->sexo,
-                'contato' => $request->contato,
+                'contato' => $request->contato ?: null,
                 'email' => $request->email,
                 'ocupacao' => $request->ocupacao,
                 'cpf' => $request->cpf,
@@ -573,9 +573,9 @@ class PacienteController extends Controller
 
             $request->validate([
                 'nome' => 'required|string|max:255',
-                'data_nascimento' => 'required|date',
-                'contato' => 'required|string|max:20',
-                'cpf' => 'nullable|string|max:14',
+                'cpf' => 'required|string|max:14',
+                'data_nascimento' => 'nullable|date',
+                'contato' => 'nullable|string|max:20',
                 'email' => 'nullable|email|max:255',
                 'sexo' => 'nullable|in:M,F,Outro',
                 'ocupacao' => 'nullable|string|max:255',
@@ -591,9 +591,9 @@ class PacienteController extends Controller
             // Atualizar apenas dados básicos do cadastro (sem dados clínicos)
             $paciente->update([
                 'nome' => $request->nome,
-                'data_nascimento' => $request->data_nascimento,
+                'data_nascimento' => $request->data_nascimento ?: null,
                 'sexo' => $request->sexo,
-                'contato' => $request->contato,
+                'contato' => $request->contato ?: null,
                 'email' => $request->email,
                 'ocupacao' => $request->ocupacao,
                 'cpf' => $request->cpf,

@@ -48,7 +48,7 @@
           </div>
 
           <div>
-            <InputData v-model="paciente.dataNascimento" label="Data de Nascimento" required />
+            <InputData v-model="paciente.dataNascimento" label="Data de Nascimento" />
           </div>
 
           <div>
@@ -56,7 +56,7 @@
           </div>
 
           <div>
-            <InputCPF v-model="paciente.cpf" label="CPF" placeholder="000.000.000-00" />
+            <InputCPF v-model="paciente.cpf" label="CPF" placeholder="000.000.000-00" required />
           </div>
 
           <div>
@@ -78,7 +78,7 @@
           </div>
 
           <div>
-            <InputTelefone v-model="paciente.telefone" label="Telefone" required />
+            <InputTelefone v-model="paciente.telefone" label="Telefone" />
           </div>
 
           <div class="lg:col-span-2">
@@ -225,8 +225,8 @@ export default {
     mapFrontendToBackend() {
       return {
         nome: this.paciente.nome,
-        data_nascimento: this.paciente.dataNascimento,
-        contato: this.paciente.telefone,
+        data_nascimento: this.paciente.dataNascimento || null,
+        contato: this.paciente.telefone || null,
         cpf: this.paciente.cpf ? this.paciente.cpf.replace(/\D/g, '') : null,
         email: this.paciente.email || null,
         sexo: this.paciente.sexo || null,
@@ -264,25 +264,17 @@ export default {
         erros.push('Nome é obrigatório')
       }
 
-      if (!this.paciente.dataNascimento) {
-        erros.push('Data de nascimento é obrigatória')
-      }
-
-      if (!this.paciente.telefone || this.paciente.telefone.trim() === '') {
-        erros.push('Telefone é obrigatório')
+      const cpfLimpo = (this.paciente.cpf || '').replace(/\D/g, '')
+      if (!cpfLimpo) {
+        erros.push('CPF é obrigatório')
+      } else if (cpfLimpo.length !== 11) {
+        erros.push('CPF deve ter 11 dígitos')
       }
 
       if (this.paciente.email && this.paciente.email.trim() !== '') {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(this.paciente.email)) {
           erros.push('Email inválido')
-        }
-      }
-
-      if (this.paciente.cpf && this.paciente.cpf.trim() !== '') {
-        const cpfLimpo = this.paciente.cpf.replace(/\D/g, '')
-        if (cpfLimpo.length !== 11) {
-          erros.push('CPF deve ter 11 dígitos')
         }
       }
 
