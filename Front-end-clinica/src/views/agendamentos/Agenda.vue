@@ -1,71 +1,118 @@
 <template>
-  <div class="max-w-7xl mx-auto p-6">
-    <!-- Header -->
-    <PageHeader title="Agenda de Consultas" description="Gerenciamento de agendamentos e horários" :icon="Calendar"
-      class="mb-8" :show-breadcrumbs="true" :breadcrumbs="[
+  <div class="max-w-[1600px] mx-auto p-4 sm:p-6">
+    <PageHeader
+      title="Agenda"
+      description="Planejamento visual da clínica — pacientes, horários e fluxo"
+      :icon="Calendar"
+      class="mb-4"
+      :show-breadcrumbs="true"
+      :breadcrumbs="[
         { label: 'Início', to: '/home' },
-        { label: 'Agenda de Consultas' }
-      ]">
-      <template #actions>
-        <div class="flex items-center gap-3">
-          <div class="inline-flex rounded-md border border-gray-200 overflow-hidden text-sm">
-            <button type="button" @click="setViewMode('dia')"
-              :class="['px-3 py-1.5', viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50']">
-              Dia
+        { label: 'Agenda' }
+      ]"
+    />
+
+    <div class="flex flex-col lg:flex-row gap-4 items-start">
+      <AgendaCalendarioSidebar
+        class="lg:sticky lg:top-4"
+        :profissionais="doctors"
+        :selecionados="panoramaDoctorIds"
+        :selected-date="selectedDate"
+        @update:selecionados="onPanoramaDoctorsChange"
+        @select-date="onMiniSelectDate"
+        @shift-month="onMiniShiftMonth"
+      />
+
+      <div class="flex-1 min-w-0 w-full space-y-4">
+        <!-- Barra estilo calendário -->
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm px-3 py-3 sm:px-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50" @click="shiftPeriod(-1)">
+              <ChevronLeft class="w-4 h-4" />
             </button>
-            <button type="button" @click="setViewMode('semana')"
-              :class="['px-3 py-1.5 border-l border-gray-200', viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50']">
-              Semana
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50"
+              @click="irParaHoje"
+            >
+              Hoje
             </button>
-            <button type="button" @click="setViewMode('mes')"
-              :class="['px-3 py-1.5 border-l border-gray-200', viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50']">
-              Mês
+            <button type="button" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50" @click="shiftPeriod(1)">
+              <ChevronRight class="w-4 h-4" />
             </button>
+            <h2 class="text-lg sm:text-xl font-semibold text-gray-900 ml-1 capitalize">
+              {{ headerDate }}
+            </h2>
           </div>
-          <div class="text-sm text-gray-600 font-medium">
-            {{ headerDate }}
+
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm bg-gray-50 p-0.5">
+              <button
+                type="button"
+                @click="setViewMode('dia')"
+                :class="['px-3 py-1.5 rounded-md', viewMode === 'dia' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
+              >
+                Dia
+              </button>
+              <button
+                type="button"
+                @click="setViewMode('semana')"
+                :class="['px-3 py-1.5 rounded-md', viewMode === 'semana' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
+              >
+                Semana
+              </button>
+              <button
+                type="button"
+                @click="setViewMode('mes')"
+                :class="['px-3 py-1.5 rounded-md', viewMode === 'mes' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
+              >
+                Mês
+              </button>
+            </div>
+            <button
+              type="button"
+              @click="openModal()"
+              class="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              <Plus class="w-4 h-4" />
+              Nova consulta
+            </button>
+            <button
+              type="button"
+              @click="abrirModalPausa()"
+              class="border border-gray-300 bg-white text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              Adicionar pausa
+            </button>
           </div>
         </div>
-      </template>
-    </PageHeader>
-    <!-- Controles -->
-    <BaseCard padding="md" class="mb-6">
-      <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-        <div class="flex flex-col sm:flex-row gap-4 flex-1">
-          <!-- Seleção de Data -->
-          <div class="w-full">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Data</label>
-            <div class="relative">
-              <Calendar class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
-              <input type="date" v-model="selectedDate"
-                class="block w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors bg-white" />
-            </div>
-          </div>
 
-          <!-- Seleção de Médico -->
-          <div class="w-full">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Médico</label>
-            <div class="relative">
-              <select v-model="selectedDoctor"
-                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors appearance-none bg-white min-w-[200px]">
-                <option value="">Todos os médicos</option>
-                <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">
-                  {{ doctor.name }} - {{ doctor.specialty }}
-                </option>
-              </select>
-            </div>
+        <!-- Filtro operacional do Dia (legado útil) -->
+        <div
+          v-if="viewMode === 'dia'"
+          class="rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-end"
+        >
+          <div class="flex-1 w-full">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Data operacional</label>
+            <input
+              type="date"
+              v-model="selectedDate"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
           </div>
-
+          <div class="flex-1 w-full">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Foco no médico (Dia)</label>
+            <select
+              v-model="selectedDoctor"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Todos os médicos</option>
+              <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">
+                {{ doctor.name }}
+              </option>
+            </select>
+          </div>
         </div>
-
-        <!-- Botão Nova Consulta -->
-        <button @click="openModal()"
-          class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2 font-medium mt-7">
-          <Plus class="w-4 h-4" />
-          <span>Nova Consulta</span>
-        </button>
-      </div>
-    </BaseCard>
 
     <!-- Mensagem quando clínica não funciona no dia -->
     <div v-if="viewMode === 'dia' && configuracao && !configuracao.dia_funcionamento && !loading && !error"
@@ -141,63 +188,59 @@
     </div>
 
     <!-- Visão Semana -->
-    <BaseCard v-if="viewMode === 'semana' && !loading && !error" padding="md" class="mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <button type="button" class="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50" @click="shiftPeriod(-1)">← Semana anterior</button>
-        <h3 class="font-semibold text-gray-900">{{ periodoLabel }}</h3>
-        <button type="button" class="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50" @click="shiftPeriod(1)">Próxima semana →</button>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-7 gap-3">
-        <button
-          v-for="dia in weekDays"
-          :key="dia.date"
-          type="button"
-          @click="abrirDia(dia.date)"
-          class="text-left border rounded-lg p-3 hover:border-blue-400 hover:bg-blue-50 transition-colors min-h-[120px]"
-        >
-          <div class="text-xs font-medium text-gray-500 uppercase">{{ dia.label }}</div>
-          <div class="text-lg font-semibold text-gray-900">{{ dia.dayNumber }}</div>
-          <div class="mt-2 text-sm text-blue-700 font-medium">{{ dia.total }} consulta(s)</div>
-          <ul class="mt-2 space-y-1">
-            <li v-for="c in dia.preview" :key="c.id" class="text-xs text-gray-600 truncate">
-              {{ c.horario }} · {{ c.paciente }}
-              <span v-if="c.pago" class="text-green-600">· pago</span>
-            </li>
-          </ul>
-        </button>
-      </div>
-    </BaseCard>
+    <div
+      v-if="viewMode === 'semana' && !panoramaDoctorIds.length && !loading && !error"
+      class="bg-blue-50 border border-blue-200 rounded-xl p-6"
+    >
+      <h3 class="text-lg font-semibold text-blue-900">Marque profissionais na barra lateral</h3>
+      <p class="text-blue-700 mt-1 text-sm">
+        Até {{ maxPanoramaDoctors }} agendas na grade, cada uma com cor própria — nome do paciente, horário e status do fluxo.
+      </p>
+    </div>
+    <div v-else-if="viewMode === 'semana' && panoramaDoctorIds.length && loading" class="text-center text-gray-500 py-10">
+      Carregando semana...
+    </div>
+    <AgendaSemanaPanorama
+      v-else-if="viewMode === 'semana' && panoramaDoctorIds.length && !error"
+      :range-inicio="periodoRange.inicio"
+      :consultas="periodoConsultasFiltradas"
+      :configuracao="configuracao"
+      :mostrar-profissional="panoramaDoctorIds.length > 1"
+      @select-day="abrirDia"
+      @select-event="onPanoramaSelectEvent"
+      @select-slot="onPanoramaSelectSlot"
+    />
 
     <!-- Visão Mês -->
-    <BaseCard v-if="viewMode === 'mes' && !loading && !error" padding="md" class="mb-6">
-      <div class="flex items-center justify-between mb-4">
-        <button type="button" class="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50" @click="shiftPeriod(-1)">← Mês anterior</button>
-        <h3 class="font-semibold text-gray-900">{{ periodoLabel }}</h3>
-        <button type="button" class="px-3 py-1.5 text-sm border rounded-md hover:bg-gray-50" @click="shiftPeriod(1)">Próximo mês →</button>
-      </div>
-      <div class="grid grid-cols-7 gap-2 mb-2">
-        <div v-for="nome in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="nome" class="text-center text-xs font-medium text-gray-500 py-1">{{ nome }}</div>
-      </div>
-      <div class="grid grid-cols-7 gap-2">
-        <button
-          v-for="cel in monthCells"
-          :key="cel.key"
-          type="button"
-          :disabled="!cel.inMonth"
-          @click="cel.inMonth && abrirDia(cel.date)"
-          :class="[
-            'min-h-[84px] rounded-lg border p-2 text-left transition-colors',
-            cel.inMonth ? 'hover:border-blue-400 hover:bg-blue-50 bg-white' : 'bg-gray-50 text-gray-300 cursor-default',
-            cel.date === selectedDate ? 'ring-2 ring-blue-500' : ''
-          ]"
-        >
-          <div class="text-sm font-semibold">{{ cel.dayNumber }}</div>
-          <div v-if="cel.inMonth" class="text-xs mt-1" :class="cel.total ? 'text-blue-700 font-medium' : 'text-gray-400'">
-            {{ cel.total }} consulta(s)
-          </div>
-        </button>
-      </div>
-    </BaseCard>
+    <div
+      v-if="viewMode === 'mes' && !panoramaDoctorIds.length && !loading && !error"
+      class="bg-blue-50 border border-blue-200 rounded-xl p-6"
+    >
+      <h3 class="text-lg font-semibold text-blue-900">Marque profissionais na barra lateral</h3>
+      <p class="text-blue-700 mt-1 text-sm">O mês mostra chips com horário, paciente e cor do profissional.</p>
+    </div>
+    <div v-else-if="viewMode === 'mes' && panoramaDoctorIds.length && loading" class="text-center text-gray-500 py-10">
+      Carregando mês...
+    </div>
+    <AgendaMesPanorama
+      v-else-if="viewMode === 'mes' && panoramaDoctorIds.length && !error"
+      :range-inicio="periodoRange.inicio"
+      :selected-date="selectedDate"
+      :consultas="periodoConsultasFiltradas"
+      @select-day="abrirDia"
+      @select-event="onPanoramaSelectEvent"
+    />
+
+    <AgendaPanoramaDrawer
+      :open="panoramaDrawerOpen"
+      :card="panoramaDrawerCard"
+      @close="fecharPanoramaDrawer"
+      @editar="onPanoramaDrawerEditar"
+      @transferir="onPanoramaDrawerTransferir"
+      @chegada="onPanoramaDrawerChegada"
+      @cancelar="onPanoramaDrawerCancelar"
+      @ir-dia="onPanoramaDrawerIrDia"
+    />
 
     <!-- Grid de Médicos -->
     <div v-if="viewMode === 'dia' && !selectedDoctor && (configuracao?.dia_funcionamento || loading) && !error"
@@ -572,6 +615,9 @@
       </BaseCard>
     </div>
 
+      </div><!-- /main column -->
+    </div><!-- /layout sidebar+main -->
+
     <ActionModal :open="showModal" :titulo="editingAppointment ? 'Editar Consulta' : 'Nova Consulta'"
       :subtitulo="editingAppointment ? 'Atualize os dados da consulta' : 'Selecione o paciente e preencha os dados para agendar'"
       :action-label="savingAppointment ? (editingAppointment ? 'Atualizando...' : 'Agendando...') : (editingAppointment ? 'Atualizar' : 'Agendar')"
@@ -806,14 +852,106 @@
         </div>
       </div>
     </ActionModal>
+
+    <!-- Cancelar consulta / remover pausa -->
+    <ActionModal
+      :open="showModalCancelar"
+      :titulo="consultaParaCancelar?.isPausa ? 'Remover pausa?' : 'Cancelar consulta?'"
+      subtitulo="Informe o motivo (obrigatório). A ação é registrada no sistema."
+      :action-label="cancelandoConsulta ? 'Cancelando…' : (consultaParaCancelar?.isPausa ? 'Remover pausa' : 'Confirmar cancelamento')"
+      action-variant="red"
+      border-color="danger"
+      :action-disabled="cancelandoConsulta || !motivoCancelamento.trim()"
+      cancel-label="Voltar"
+      modal-width="sm:max-w-md"
+      @acao="confirmarCancelamentoApi"
+      @cancel="fecharModalCancelar"
+    >
+      <div class="space-y-3">
+        <p v-if="consultaParaCancelar" class="text-sm text-gray-700">
+          <span class="font-medium">{{ consultaParaCancelar.paciente || 'Item' }}</span>
+          · {{ consultaParaCancelar.horarioInicio }}
+          <span v-if="consultaParaCancelar.data"> · {{ consultaParaCancelar.data }}</span>
+        </p>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Motivo *</label>
+          <textarea
+            v-model="motivoCancelamento"
+            rows="3"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            placeholder="Ex.: paciente desistiu / profissional em reunião / remarcação externa"
+          />
+        </div>
+      </div>
+    </ActionModal>
+
+    <!-- Adicionar pausa do profissional -->
+    <ActionModal
+      :open="showModalPausa"
+      titulo="Adicionar pausa"
+      subtitulo="Bloqueia o horário na agenda do profissional pelo tempo informado."
+      :action-label="salvandoPausa ? 'Salvando…' : 'Salvar pausa'"
+      action-variant="blue"
+      :action-disabled="salvandoPausa"
+      cancel-label="Cancelar"
+      modal-width="sm:max-w-md"
+      @acao="salvarPausa"
+      @cancel="fecharModalPausa"
+    >
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Profissional *</label>
+          <select v-model="formPausa.doctorId" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="">Selecione…</option>
+            <option v-for="d in doctors" :key="d.id" :value="String(d.id)">{{ d.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Data *</label>
+          <input type="date" v-model="formPausa.date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Início *</label>
+            <input type="time" v-model="formPausa.time" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Duração *</label>
+            <select v-model.number="formPausa.duracao" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <option :value="15">15 min</option>
+              <option :value="30">30 min</option>
+              <option :value="45">45 min</option>
+              <option :value="60">1 hora</option>
+              <option :value="90">1h 30</option>
+              <option :value="120">2 horas</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Motivo / nome da pausa *</label>
+          <input
+            v-model="formPausa.motivo"
+            type="text"
+            maxlength="120"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            placeholder="Ex.: Almoço, reunião, treinamento"
+          />
+        </div>
+      </div>
+    </ActionModal>
   </div>
 </template>
 
 <script>
-import { Calendar, Clock, User, Phone, Plus, Search, Edit, Check, X, UserCheck, UserPlus, Info } from 'lucide-vue-next'
+import { Calendar, Clock, User, Phone, Plus, Search, Edit, Check, X, UserCheck, UserPlus, Info, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from '../../services/axios.js'
 import { toastSuccess, toastError, toastWarning } from '../../composables/useToast.js'
 import { urlPreCadastro } from '../../utils/fluxoAtendimento.js'
+import { MAX_PROFISSIONAIS_PANORAMA } from '../../utils/agendaPanorama.js'
+import AgendaSemanaPanorama from '../../components/agenda/AgendaSemanaPanorama.vue'
+import AgendaMesPanorama from '../../components/agenda/AgendaMesPanorama.vue'
+import AgendaPanoramaDrawer from '../../components/agenda/AgendaPanoramaDrawer.vue'
+import AgendaCalendarioSidebar from '../../components/agenda/AgendaCalendarioSidebar.vue'
 
 export default {
   name: 'Agenda',
@@ -830,14 +968,38 @@ export default {
     UserCheck,
     UserPlus,
     Info,
+    ChevronLeft,
+    ChevronRight,
+    AgendaSemanaPanorama,
+    AgendaMesPanorama,
+    AgendaPanoramaDrawer,
+    AgendaCalendarioSidebar,
   },
   data() {
     return {
       Calendar,
       selectedDate: '',
       selectedDoctor: '',
-      viewMode: 'dia',
+      panoramaDoctorIds: [],
+      maxPanoramaDoctors: MAX_PROFISSIONAIS_PANORAMA,
+      viewMode: 'semana',
       periodoConsultas: [],
+      panoramaDrawerOpen: false,
+      panoramaDrawerCard: null,
+      panoramaDrawerConsulta: null,
+      showModalCancelar: false,
+      consultaParaCancelar: null,
+      motivoCancelamento: '',
+      cancelandoConsulta: false,
+      showModalPausa: false,
+      salvandoPausa: false,
+      formPausa: {
+        doctorId: '',
+        date: '',
+        time: '',
+        duracao: 60,
+        motivo: '',
+      },
       showModal: false,
       editingAppointment: null,
       showModalChegada: false,
@@ -899,11 +1061,18 @@ export default {
         this.temConfiguracao === true &&
         !this.error &&
         !this.loading &&
-        this.viewMode === 'dia' &&
         Array.isArray(this.profissionais) &&
         this.profissionais.length === 0 &&
         !!this.configuracao
       )
+    },
+    periodoConsultasFiltradas() {
+      const ids = (this.panoramaDoctorIds || []).map(String)
+      if (!ids.length) return []
+      return (this.periodoConsultas || []).filter((c) => {
+        const uid = c.user_id ?? c.user?.id
+        return ids.includes(String(uid))
+      })
     },
     doctors() {
       const profsToUse = this.showModal ? this.profissionaisModal : this.profissionais
@@ -1044,66 +1213,6 @@ export default {
       }
       return `${this.formatDateShort(inicio)} — ${this.formatDateShort(fim)}`
     },
-    consultasPorData() {
-      const map = {}
-      ;(this.periodoConsultas || []).forEach((c) => {
-        const data = typeof c.data === 'string'
-          ? c.data.substring(0, 10)
-          : (c.data?.substring?.(0, 10) || '')
-        if (!map[data]) map[data] = []
-        map[data].push(c)
-      })
-      return map
-    },
-    weekDays() {
-      const { inicio } = this.periodoRange
-      const start = this.parseLocalDate(inicio)
-      const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(start)
-        d.setDate(start.getDate() + i)
-        const iso = this.formatDateISO(d)
-        const list = this.consultasPorData[iso] || []
-        return {
-          date: iso,
-          label: nomes[i],
-          dayNumber: d.getDate(),
-          total: list.length,
-          preview: list.slice(0, 3).map((c) => ({
-            id: c.id,
-            horario: this.normalizeTime(c.horario_inicio),
-            paciente: c.paciente?.nome || 'Paciente',
-            pago: !!c.pago,
-          })),
-        }
-      })
-    },
-    monthCells() {
-      const { inicio } = this.periodoRange
-      const first = this.parseLocalDate(inicio)
-      const startPad = first.getDay()
-      const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
-      const cells = []
-      for (let i = 0; i < startPad; i++) {
-        cells.push({ key: `pad-${i}`, inMonth: false, dayNumber: '', date: '', total: 0 })
-      }
-      for (let day = 1; day <= daysInMonth; day++) {
-        const d = new Date(first.getFullYear(), first.getMonth(), day)
-        const iso = this.formatDateISO(d)
-        const list = this.consultasPorData[iso] || []
-        cells.push({
-          key: iso,
-          inMonth: true,
-          dayNumber: day,
-          date: iso,
-          total: list.length,
-        })
-      }
-      while (cells.length % 7 !== 0) {
-        cells.push({ key: `end-${cells.length}`, inMonth: false, dayNumber: '', date: '', total: 0 })
-      }
-      return cells
-    },
     selectedDoctorData() {
       return this.doctors.find(doc => doc.id == this.selectedDoctor) || null
     },
@@ -1138,7 +1247,31 @@ export default {
     },
     setViewMode(mode) {
       this.viewMode = mode
+      this.ensurePanoramaDoctors()
       this.carregarAgenda()
+    },
+    ensurePanoramaDoctors() {
+      if (this.panoramaDoctorIds.length) return
+      const list = this.doctors || []
+      if (!list.length) return
+      this.panoramaDoctorIds = list.slice(0, this.maxPanoramaDoctors).map((d) => String(d.id))
+      if (!this.selectedDoctor && this.panoramaDoctorIds[0]) {
+        this.selectedDoctor = this.panoramaDoctorIds[0]
+      }
+    },
+    onPanoramaDoctorsChange(ids) {
+      this.panoramaDoctorIds = (ids || []).map(String).slice(0, this.maxPanoramaDoctors)
+      if (this.panoramaDoctorIds.length && !this.panoramaDoctorIds.includes(String(this.selectedDoctor))) {
+        this.selectedDoctor = this.panoramaDoctorIds[0]
+      }
+    },
+    onMiniSelectDate(iso) {
+      this.selectedDate = iso
+    },
+    onMiniShiftMonth(direction) {
+      const base = this.parseLocalDate(this.selectedDate || this.obterDataAtual())
+      base.setMonth(base.getMonth() + direction)
+      this.selectedDate = this.formatDateISO(base)
     },
     shiftPeriod(direction) {
       const base = this.parseLocalDate(this.selectedDate || this.obterDataAtual())
@@ -1152,9 +1285,176 @@ export default {
       this.selectedDate = this.formatDateISO(base)
     },
     abrirDia(dateIso) {
+      this.fecharPanoramaDrawer()
       this.selectedDate = dateIso
       this.viewMode = 'dia'
       this.carregarAgenda()
+    },
+    irParaHoje() {
+      this.selectedDate = this.obterDataAtual()
+    },
+    fecharPanoramaDrawer() {
+      this.panoramaDrawerOpen = false
+      this.panoramaDrawerCard = null
+      this.panoramaDrawerConsulta = null
+    },
+    onPanoramaSelectEvent(card) {
+      if (!card?.id) return
+      const raw = (this.periodoConsultas || []).find((c) => c.id === card.id) || null
+      this.panoramaDrawerCard = card
+      this.panoramaDrawerConsulta = raw
+      this.panoramaDrawerOpen = true
+    },
+    async onPanoramaSelectSlot({ date, time }) {
+      const doctorId = this.selectedDoctor || this.panoramaDoctorIds[0] || ''
+      if (!doctorId) {
+        toastWarning('Marque ao menos um profissional na barra lateral', { autoClose: 3500 })
+        return
+      }
+      if (!date || !time) return
+      this.fecharPanoramaDrawer()
+      this.selectedDate = date
+      this.selectedDoctor = doctorId
+      await this.openModal(time, doctorId)
+    },
+    onPanoramaDrawerEditar() {
+      const consulta = this.panoramaDrawerConsulta
+      this.fecharPanoramaDrawer()
+      if (!consulta) {
+        toastWarning('Não foi possível carregar os dados da consulta', { autoClose: 3000 })
+        return
+      }
+      this.editAppointmentFromHorario(consulta)
+    },
+    onPanoramaDrawerTransferir() {
+      const consulta = this.panoramaDrawerConsulta
+      this.fecharPanoramaDrawer()
+      if (!consulta) {
+        toastWarning('Não foi possível carregar os dados da consulta', { autoClose: 3000 })
+        return
+      }
+      toastWarning('Altere data, horário ou médico e salve para transferir', { autoClose: 4000 })
+      this.editAppointmentFromHorario(consulta)
+    },
+    onPanoramaDrawerCancelar() {
+      const card = this.panoramaDrawerCard
+      const consulta = this.panoramaDrawerConsulta
+      this.fecharPanoramaDrawer()
+      if (!consulta?.id) {
+        toastWarning('Não foi possível identificar a consulta', { autoClose: 3000 })
+        return
+      }
+      this.consultaParaCancelar = {
+        id: consulta.id,
+        paciente: card?.paciente,
+        horarioInicio: card?.horarioInicio,
+        data: card?.data,
+        isPausa: !!card?.isPausa,
+      }
+      this.motivoCancelamento = card?.isPausa ? 'Pausa removida pela recepção' : ''
+      this.showModalCancelar = true
+    },
+    fecharModalCancelar() {
+      this.showModalCancelar = false
+      this.consultaParaCancelar = null
+      this.motivoCancelamento = ''
+      this.cancelandoConsulta = false
+    },
+    async confirmarCancelamentoApi() {
+      if (!this.consultaParaCancelar?.id) return
+      const motivo = String(this.motivoCancelamento || '').trim()
+      if (!motivo) {
+        toastWarning('Informe o motivo do cancelamento', { autoClose: 3000 })
+        return
+      }
+      try {
+        this.cancelandoConsulta = true
+        const response = await axios.post(`/consultas/${this.consultaParaCancelar.id}/cancelar`, {
+          motivo_cancelamento: motivo,
+        })
+        if (response.data.success) {
+          toastSuccess(this.consultaParaCancelar.isPausa ? 'Pausa removida' : 'Consulta cancelada')
+          this.fecharModalCancelar()
+          await this.carregarAgenda()
+        } else {
+          toastError(response.data.message || 'Não foi possível cancelar')
+        }
+      } catch (err) {
+        toastError(err.response?.data?.message || 'Erro ao cancelar')
+      } finally {
+        this.cancelandoConsulta = false
+      }
+    },
+    abrirModalPausa() {
+      this.formPausa = {
+        doctorId: String(this.selectedDoctor || this.panoramaDoctorIds[0] || ''),
+        date: this.selectedDate || this.obterDataAtual(),
+        time: '',
+        duracao: 60,
+        motivo: '',
+      }
+      this.showModalPausa = true
+    },
+    fecharModalPausa() {
+      this.showModalPausa = false
+      this.salvandoPausa = false
+    },
+    async salvarPausa() {
+      const { doctorId, date, time, duracao, motivo } = this.formPausa
+      if (!doctorId || !date || !time || !motivo?.trim()) {
+        toastWarning('Preencha profissional, data, horário e motivo', { autoClose: 3500 })
+        return
+      }
+      const [h, m] = time.split(':').map(Number)
+      const inicio = new Date(2000, 0, 1, h, m, 0)
+      const fim = new Date(inicio.getTime() + Number(duracao) * 60000)
+      const horarioFim = `${String(fim.getHours()).padStart(2, '0')}:${String(fim.getMinutes()).padStart(2, '0')}`
+      const nome = motivo.trim()
+      try {
+        this.salvandoPausa = true
+        const response = await axios.post('/consultas', {
+          user_id: parseInt(doctorId, 10),
+          paciente_id: null,
+          procedimento: `Pausa: ${nome}`,
+          data: date,
+          horario_inicio: time,
+          horario_fim: horarioFim,
+          prioridade: 'normal',
+          observacoes: nome,
+          pago: false,
+        })
+        if (response.data.success) {
+          toastSuccess('Pausa adicionada na agenda')
+          this.fecharModalPausa()
+          if (!this.panoramaDoctorIds.map(String).includes(String(doctorId))) {
+            if (this.panoramaDoctorIds.length < this.maxPanoramaDoctors) {
+              this.panoramaDoctorIds = [...this.panoramaDoctorIds, String(doctorId)]
+            }
+          }
+          await this.carregarAgenda()
+        } else {
+          toastError(response.data.message || 'Não foi possível salvar a pausa')
+        }
+      } catch (err) {
+        toastError(err.response?.data?.message || 'Erro ao salvar pausa')
+      } finally {
+        this.salvandoPausa = false
+      }
+    },
+    onPanoramaDrawerChegada() {
+      const consulta = this.panoramaDrawerConsulta
+      const nome = this.panoramaDrawerCard?.profissional || null
+      this.fecharPanoramaDrawer()
+      if (!consulta) {
+        toastWarning('Não foi possível carregar os dados da consulta', { autoClose: 3000 })
+        return
+      }
+      this.confirmarChegadaModal(consulta, nome)
+    },
+    onPanoramaDrawerIrDia() {
+      const date = this.panoramaDrawerCard?.data
+      this.fecharPanoramaDrawer()
+      if (date) this.abrirDia(date)
     },
     obterDataAtual() {
       const hoje = new Date()
@@ -1910,13 +2210,17 @@ export default {
         appointment.status = 'atendida'
       }
     },
-    cancelAppointment(id) {
-      if (confirm('Tem certeza que deseja cancelar esta consulta?')) {
-        const appointment = this.appointments.find(apt => apt.id === id)
-        if (appointment) {
-          appointment.status = 'cancelada'
-        }
+    async cancelAppointment(id) {
+      const apt = this.appointments.find((a) => a.id === id)
+      this.consultaParaCancelar = {
+        id,
+        paciente: apt?.patient,
+        horarioInicio: apt?.time || apt?.horario_inicio,
+        data: apt?.date,
+        isPausa: false,
       }
+      this.motivoCancelamento = ''
+      this.showModalCancelar = true
     },
     novoPaciente() {
       this.irCadastrarPacienteAntes()
@@ -1953,9 +2257,7 @@ export default {
             data_inicio: inicio,
             data_fim: fim,
           })
-          if (this.selectedDoctor) {
-            params.set('user_id', this.selectedDoctor)
-          }
+          // Multi-profissional: busca o período e filtra no front pelos checkboxes (máx. 3)
           const [periodoRes, diaRes] = await Promise.all([
             axios.get(`/consultas/agenda-periodo?${params.toString()}`),
             axios.get(`/consultas?data=${this.selectedDate || inicio}`),
@@ -1971,6 +2273,7 @@ export default {
             this.temConfiguracao = diaRes.data.data.tem_configuracao
               ?? !!diaRes.data.data.configuracao
             this.profissionais = diaRes.data.data.profissionais || []
+            this.ensurePanoramaDoctors()
           }
           return
         }
@@ -1984,6 +2287,7 @@ export default {
           this.temConfiguracao = response.data.data.tem_configuracao
             ?? !!response.data.data.configuracao
           this.periodoConsultas = []
+          this.ensurePanoramaDoctors()
         } else {
           throw new Error(response.data.message || 'Erro ao carregar agenda')
         }
@@ -2109,10 +2413,11 @@ export default {
         this.carregarAgenda()
       }
     },
-    selectedDoctor() {
-      if (this.viewMode !== 'dia') {
-        this.carregarAgenda()
-      }
+    profissionais: {
+      handler() {
+        this.ensurePanoramaDoctors()
+      },
+      deep: true,
     },
     'form.pago'(pago) {
       if (!pago) {
