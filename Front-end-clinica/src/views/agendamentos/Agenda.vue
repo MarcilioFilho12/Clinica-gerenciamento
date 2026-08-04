@@ -8,7 +8,7 @@
     <PageHeader
       v-show="!agendaExpanded"
       title="Agenda"
-      description="Planejamento visual da clínica — pacientes, horários e fluxo"
+      description="Operação do dia — agende, confirme chegada e acompanhe o fluxo"
       :icon="Calendar"
       class="mb-2 sm:mb-3"
       :show-breadcrumbs="true"
@@ -79,9 +79,10 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm bg-gray-50 p-0.5">
+            <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm bg-gray-50 p-0.5" role="group" aria-label="Modo da agenda">
               <button
                 type="button"
+                title="Operação do dia (padrão da recepção)"
                 @click="setViewMode('dia')"
                 :class="['px-3 py-1.5 rounded-md', viewMode === 'dia' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
               >
@@ -89,6 +90,7 @@
               </button>
               <button
                 type="button"
+                title="Planejamento semanal"
                 @click="setViewMode('semana')"
                 :class="['px-3 py-1.5 rounded-md', viewMode === 'semana' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
               >
@@ -96,6 +98,7 @@
               </button>
               <button
                 type="button"
+                title="Panorama mensal"
                 @click="setViewMode('mes')"
                 :class="['px-3 py-1.5 rounded-md', viewMode === 'mes' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-900']"
               >
@@ -1124,7 +1127,7 @@ export default {
       selectedDoctor: '',
       panoramaDoctorIds: [],
       maxPanoramaDoctors: MAX_PROFISSIONAIS_PANORAMA,
-      viewMode: 'semana',
+      viewMode: 'dia',
       agendaExpanded: false,
       periodoConsultas: [],
       panoramaDrawerOpen: false,
@@ -1493,7 +1496,14 @@ export default {
       this.carregarAgenda()
     },
     irParaHoje() {
-      this.selectedDate = this.obterDataAtual()
+      const hoje = this.obterDataAtual()
+      const mudouModo = this.viewMode !== 'dia'
+      this.viewMode = 'dia'
+      if (this.selectedDate !== hoje) {
+        this.selectedDate = hoje // watch → carregarAgenda no modo Dia
+      } else if (mudouModo) {
+        this.carregarAgenda()
+      }
     },
     fecharPanoramaDrawer() {
       this.panoramaDrawerOpen = false

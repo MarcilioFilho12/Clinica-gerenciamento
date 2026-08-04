@@ -70,8 +70,8 @@ Também é possível cadastrar a partir do modal de **Nova consulta** na agenda 
 
 ### 3.3 Agendar consulta
 
-1. Abra **Agenda**
-2. Escolha **Dia / Semana / Mês**
+1. Abra **Agenda** — ela abre no modo **Dia** (operação da recepção), com um profissional em foco
+2. Use **Semana** / **Mês** só para planejamento; ao clicar em um dia ou em **Hoje**, volta ao modo Dia
 3. Clique em **Nova consulta**, ou em um horário livre / célula da semana
 4. No modal (um passo só):
    - **Data** e **Profissional** (preenchidos automaticamente quando possível)
