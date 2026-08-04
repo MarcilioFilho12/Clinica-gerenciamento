@@ -1,14 +1,14 @@
 <template>
-  <aside class="w-full lg:w-56 xl:w-64 flex-shrink-0 flex flex-col gap-4">
-    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div class="flex items-center justify-between mb-3">
+  <div class="agenda-calendario-sidebar w-full max-w-[300px] lg:w-[280px] lg:max-w-[280px] flex-shrink-0 flex flex-col gap-3">
+    <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-semibold text-gray-900">Profissionais</h3>
         <span class="text-[10px] text-gray-500">até {{ maxSelecionados }}</span>
       </div>
-      <p class="text-[11px] text-gray-500 mb-3 leading-snug">
+      <p class="text-[11px] text-gray-500 mb-2 leading-snug">
         Marque quem aparece na grade. Cores distintas por profissional; status do paciente no bloco.
       </p>
-      <ul class="space-y-2 max-h-64 overflow-y-auto">
+      <ul class="space-y-1.5 max-h-52 overflow-y-auto">
         <li v-for="doc in profissionais" :key="doc.id">
           <label
             class="flex items-center gap-2 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-gray-50"
@@ -31,8 +31,8 @@
       </ul>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div class="flex items-center justify-between mb-3">
+    <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
         <button type="button" class="p-1 rounded hover:bg-gray-100" @click="$emit('shift-month', -1)">
           <ChevronLeft class="w-4 h-4 text-gray-600" />
         </button>
@@ -69,7 +69,7 @@
       <p class="text-[10px] font-medium text-gray-500 mb-2 uppercase tracking-wide">Status do fluxo</p>
       <AgendaPanoramaLegenda class="!gap-2 flex-col items-start" />
     </div>
-  </aside>
+  </div>
 </template>
 
 <script>

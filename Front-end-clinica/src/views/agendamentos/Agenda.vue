@@ -1,10 +1,10 @@
 <template>
-  <div class="max-w-[1600px] mx-auto p-4 sm:p-6">
+  <div class="agenda-page w-full min-w-0">
     <PageHeader
       title="Agenda"
       description="Planejamento visual da clínica — pacientes, horários e fluxo"
       :icon="Calendar"
-      class="mb-4"
+      class="mb-2 sm:mb-3"
       :show-breadcrumbs="true"
       :breadcrumbs="[
         { label: 'Início', to: '/home' },
@@ -12,9 +12,16 @@
       ]"
     />
 
-    <div class="flex flex-col lg:flex-row gap-4 items-start">
+    <div
+      :class="[
+        'agenda-workspace w-full min-w-0',
+        'flex flex-col lg:grid lg:items-start gap-3',
+        'transition-[gap] duration-[250ms] ease-in-out',
+        isSidebarCompact ? 'lg:gap-4' : 'lg:gap-3',
+      ]"
+    >
       <AgendaCalendarioSidebar
-        class="lg:sticky lg:top-4"
+        class="lg:sticky lg:top-2 agenda-side-panel"
         :profissionais="doctors"
         :selecionados="panoramaDoctorIds"
         :selected-date="selectedDate"
@@ -23,9 +30,9 @@
         @shift-month="onMiniShiftMonth"
       />
 
-      <div class="flex-1 min-w-0 w-full space-y-4">
+      <div class="agenda-main min-w-0 w-full flex flex-col gap-3">
         <!-- Barra estilo calendário -->
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm px-3 py-3 sm:px-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <div class="rounded-xl border border-gray-200 bg-white shadow-sm px-3 py-2.5 sm:px-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 justify-between">
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50" @click="shiftPeriod(-1)">
               <ChevronLeft class="w-4 h-4" />
@@ -40,7 +47,7 @@
             <button type="button" class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50" @click="shiftPeriod(1)">
               <ChevronRight class="w-4 h-4" />
             </button>
-            <h2 class="text-lg sm:text-xl font-semibold text-gray-900 ml-1 capitalize">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900 ml-1 capitalize">
               {{ headerDate }}
             </h2>
           </div>
@@ -72,7 +79,7 @@
             <button
               type="button"
               @click="openModal()"
-              class="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
+              class="bg-gray-900 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
             >
               <Plus class="w-4 h-4" />
               Nova consulta
@@ -80,31 +87,31 @@
             <button
               type="button"
               @click="abrirModalPausa()"
-              class="border border-gray-300 bg-white text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm font-medium"
+              class="border border-gray-300 bg-white text-gray-800 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm font-medium"
             >
               Adicionar pausa
             </button>
           </div>
         </div>
 
-        <!-- Filtro operacional do Dia (legado útil) -->
+        <!-- Filtro operacional do Dia (compacto) -->
         <div
           v-if="viewMode === 'dia'"
-          class="rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-end"
+          class="rounded-xl border border-gray-200 bg-white shadow-sm px-3 py-2 flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-end"
         >
-          <div class="flex-1 w-full">
-            <label class="block text-xs font-medium text-gray-500 mb-1">Data operacional</label>
+          <div class="flex-1 w-full min-w-0">
+            <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Data operacional</label>
             <input
               type="date"
               v-model="selectedDate"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              class="block w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
             />
           </div>
-          <div class="flex-1 w-full">
-            <label class="block text-xs font-medium text-gray-500 mb-1">Foco no médico (Dia)</label>
+          <div class="flex-1 w-full min-w-0">
+            <label class="block text-[11px] font-medium text-gray-500 mb-0.5">Foco no médico (Dia)</label>
             <select
               v-model="selectedDoctor"
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              class="block w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
             >
               <option value="">Todos os médicos</option>
               <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">
@@ -116,7 +123,7 @@
 
     <!-- Mensagem quando clínica não funciona no dia -->
     <div v-if="viewMode === 'dia' && configuracao && !configuracao.dia_funcionamento && !loading && !error"
-      class="bg-orange-50 border border-orange-200 rounded-lg p-6 mb-6">
+      class="bg-orange-50 border border-orange-200 rounded-lg p-4 sm:p-6">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
           <Calendar class="w-5 h-5 text-orange-600" />
@@ -133,7 +140,7 @@
     </div>
 
     <!-- Mensagem de erro -->
-    <div v-if="error && !loading" class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+    <div v-if="error && !loading" class="bg-red-50 border border-red-200 rounded-lg p-4 sm:p-6">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
           <X class="w-5 h-5 text-red-600" />
@@ -146,7 +153,7 @@
     </div>
 
     <!-- Mensagem quando não há configuração -->
-    <div v-if="mostrarAvisoSemConfiguracao" class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+    <div v-if="mostrarAvisoSemConfiguracao" class="bg-blue-50 border border-blue-200 rounded-lg p-4 sm:p-6">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
           <Calendar class="w-5 h-5 text-blue-600" />
@@ -165,7 +172,7 @@
     </div>
 
     <!-- Configuração existe, mas falta profissional (profile clínico) -->
-    <div v-if="mostrarAvisoSemProfissional" class="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+    <div v-if="mostrarAvisoSemProfissional" class="bg-amber-50 border border-amber-200 rounded-lg p-4 sm:p-6">
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
           <User class="w-5 h-5 text-amber-700" />
@@ -190,7 +197,7 @@
     <!-- Visão Semana -->
     <div
       v-if="viewMode === 'semana' && !panoramaDoctorIds.length && !loading && !error"
-      class="bg-blue-50 border border-blue-200 rounded-xl p-6"
+      class="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6"
     >
       <h3 class="text-lg font-semibold text-blue-900">Marque profissionais na barra lateral</h3>
       <p class="text-blue-700 mt-1 text-sm">
@@ -200,21 +207,25 @@
     <div v-else-if="viewMode === 'semana' && panoramaDoctorIds.length && loading" class="text-center text-gray-500 py-10">
       Carregando semana...
     </div>
-    <AgendaSemanaPanorama
+    <div
       v-else-if="viewMode === 'semana' && panoramaDoctorIds.length && !error"
-      :range-inicio="periodoRange.inicio"
-      :consultas="periodoConsultasFiltradas"
-      :configuracao="configuracao"
-      :mostrar-profissional="panoramaDoctorIds.length > 1"
-      @select-day="abrirDia"
-      @select-event="onPanoramaSelectEvent"
-      @select-slot="onPanoramaSelectSlot"
-    />
+      class="agenda-calendar-host w-full min-w-0"
+    >
+      <AgendaSemanaPanorama
+        :range-inicio="periodoRange.inicio"
+        :consultas="periodoConsultasFiltradas"
+        :configuracao="configuracao"
+        :mostrar-profissional="panoramaDoctorIds.length > 1"
+        @select-day="abrirDia"
+        @select-event="onPanoramaSelectEvent"
+        @select-slot="onPanoramaSelectSlot"
+      />
+    </div>
 
     <!-- Visão Mês -->
     <div
       v-if="viewMode === 'mes' && !panoramaDoctorIds.length && !loading && !error"
-      class="bg-blue-50 border border-blue-200 rounded-xl p-6"
+      class="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6"
     >
       <h3 class="text-lg font-semibold text-blue-900">Marque profissionais na barra lateral</h3>
       <p class="text-blue-700 mt-1 text-sm">O mês mostra chips com horário, paciente e cor do profissional.</p>
@@ -222,14 +233,18 @@
     <div v-else-if="viewMode === 'mes' && panoramaDoctorIds.length && loading" class="text-center text-gray-500 py-10">
       Carregando mês...
     </div>
-    <AgendaMesPanorama
+    <div
       v-else-if="viewMode === 'mes' && panoramaDoctorIds.length && !error"
-      :range-inicio="periodoRange.inicio"
-      :selected-date="selectedDate"
-      :consultas="periodoConsultasFiltradas"
-      @select-day="abrirDia"
-      @select-event="onPanoramaSelectEvent"
-    />
+      class="agenda-calendar-host agenda-calendar-fill w-full min-w-0"
+    >
+      <AgendaMesPanorama
+        :range-inicio="periodoRange.inicio"
+        :selected-date="selectedDate"
+        :consultas="periodoConsultasFiltradas"
+        @select-day="abrirDia"
+        @select-event="onPanoramaSelectEvent"
+      />
+    </div>
 
     <AgendaPanoramaDrawer
       :open="panoramaDrawerOpen"
@@ -244,7 +259,7 @@
 
     <!-- Grid de Médicos -->
     <div v-if="viewMode === 'dia' && !selectedDoctor && (configuracao?.dia_funcionamento || loading) && !error"
-      class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
       <BaseCard v-for="doctor in doctors" :key="doctor.id" padding="sm">
         <!-- Header do Médico -->
         <template #header>
@@ -946,6 +961,7 @@
 import { Calendar, Clock, User, Phone, Plus, Search, Edit, Check, X, UserCheck, UserPlus, Info, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import axios from '../../services/axios.js'
 import { toastSuccess, toastError, toastWarning } from '../../composables/useToast.js'
+import { useSidebarLayout } from '../../composables/useSidebarLayout.js'
 import { urlPreCadastro } from '../../utils/fluxoAtendimento.js'
 import { MAX_PROFISSIONAIS_PANORAMA } from '../../utils/agendaPanorama.js'
 import AgendaSemanaPanorama from '../../components/agenda/AgendaSemanaPanorama.vue'
@@ -974,6 +990,12 @@ export default {
     AgendaMesPanorama,
     AgendaPanoramaDrawer,
     AgendaCalendarioSidebar,
+  },
+  setup() {
+    const { isCompact } = useSidebarLayout()
+    return {
+      isSidebarCompact: isCompact,
+    }
   },
   data() {
     return {
@@ -2465,6 +2487,39 @@ export default {
 </script>
 
 <style scoped>
+.agenda-page {
+  width: 100%;
+  max-width: none;
+}
+
+@media (min-width: 1024px) {
+  .agenda-workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+}
+
+.agenda-side-panel {
+  width: 100%;
+  max-width: 300px;
+}
+
+@media (min-width: 1024px) {
+  .agenda-side-panel {
+    width: 280px;
+    max-width: 280px;
+  }
+}
+
+.agenda-calendar-fill {
+  width: 100%;
+  min-height: calc(100vh - 13.5rem);
+}
+
+.agenda-calendar-fill :deep(.agenda-mes-root) {
+  height: 100%;
+  min-height: calc(100vh - 13.5rem);
+}
+
 select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
   background-position: right 0.5rem center;

@@ -1,18 +1,19 @@
 <template>
-  <!-- Sidebar -->
-  <aside @mouseenter="isHovered = true" @mouseleave="isHovered = false" :class="[
-    'bg-white shadow-xl border-r border-gray-100 flex flex-col h-full relative overflow-hidden transition-all duration-300 ease-in-out',
-    (isCollapsed && !isHovered) ? 'w-20' : 'w-72'
-  ]">
+  <!-- Sidebar: largura controlada pelo CSS Grid do LayoutPainel -->
+  <aside
+    @mouseenter="setHovered(true)"
+    @mouseleave="setHovered(false)"
+    class="nav-sidebar bg-white shadow-xl border-r border-gray-100 flex flex-col h-full w-full min-w-0 relative overflow-hidden"
+  >
     <!-- Menu de navegação -->
     <nav :class="[
-      'overflow-y-auto flex-1 min-h-0 overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-all duration-300',
-      (isCollapsed && !isHovered) ? 'p-2' : 'p-4'
+      'overflow-y-auto flex-1 min-h-0 overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden transition-[padding] duration-[250ms] ease-in-out',
+      isCompact ? 'p-2' : 'p-4'
     ]">
       <ul class="space-y-2 pb-4">
         <!-- Botão de toggle quando recolhido (primeiro item) -->
-        <li v-if="isCollapsed && !isHovered">
-          <button @click="toggleSidebar"
+        <li v-if="isCompact">
+          <button @click="onToggleSidebar"
             class="w-full p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600 hover:text-[#0676a6] flex items-center justify-center"
             title="Expandir menu">
             <Menu class="h-5 w-5" />
@@ -22,34 +23,32 @@
         <!-- Item simples (sem dropdown) -->
         <li v-for="item in menuItems" :key="item.id">
           <!-- Separador -->
-          <hr v-if="item.separator && (!isCollapsed || isHovered)" class="my-3 border-gray-200" />
+          <hr v-if="item.separator && !isCompact" class="my-3 border-gray-200" />
 
           <!-- Link simples -->
           <div v-else-if="!item.children" :class="[
             'relative w-full flex items-center rounded-lg transition-all duration-200',
-            (isCollapsed && !isHovered)
-              ? 'justify-center'
-              : ''
+            isCompact ? 'justify-center' : ''
           ]">
             <router-link :to="item.to" :class="[
               'flex items-center rounded-lg transition-all duration-200 hover:[&>svg]:scale-110',
-              (isCollapsed && !isHovered)
+              isCompact
                 ? 'justify-center px-2 py-3 w-full'
                 : 'px-4 py-3 text-left hover:translate-x-0.5 flex-1',
               isActive(item.to)
                 ? 'bg-[#0676a6] text-white shadow-md'
                 : 'text-gray-700 hover:text-[#0676a6]'
-            ]" :title="(isCollapsed && !isHovered) ? item.label : ''">
+            ]" :title="isCompact ? item.label : ''">
               <component :is="item.icon" :class="[
                 'h-5 w-5 transition-transform duration-200',
-                (isCollapsed && !isHovered) ? '' : 'mr-3'
+                isCompact ? '' : 'mr-3'
               ]" />
-              <span v-if="!isCollapsed || isHovered" class="font-medium">{{ item.label }}</span>
+              <span v-if="!isCompact" class="font-medium truncate">{{ item.label }}</span>
             </router-link>
 
             <!-- Botão de toggle apenas no item Início quando expandido -->
-            <button v-if="item.id === 'inicio' && (!isCollapsed || isHovered)" @click.stop="toggleSidebar"
-              class="ml-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600 hover:text-[#0676a6]"
+            <button v-if="item.id === 'inicio' && !isCompact" @click.stop="onToggleSidebar"
+              class="ml-2 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 text-gray-600 hover:text-[#0676a6] flex-shrink-0"
               title="Recolher/Expandir menu">
               <Menu class="h-5 w-5" />
             </button>
@@ -57,18 +56,18 @@
 
           <!-- Item com dropdown -->
           <template v-else>
-            <button v-if="!isCollapsed || isHovered" @click="toggleMenu(item.id)" :class="[
+            <button v-if="!isCompact" @click="toggleMenu(item.id)" :class="[
               'relative w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-all duration-200 hover:translate-x-0.5 hover:[&>svg]:scale-110',
               isMenuOpen(item.id) || isActiveInChildren(item)
                 ? 'bg-[#c1dde9] text-[#0676a6] font-semibold'
                 : 'text-gray-700 hover:text-[#0676a6]'
             ]">
-              <div class="flex items-center">
-                <component :is="item.icon" class="h-5 w-5 mr-3" />
-                <span class="font-medium">{{ item.label }}</span>
+              <div class="flex items-center min-w-0">
+                <component :is="item.icon" class="h-5 w-5 mr-3 flex-shrink-0" />
+                <span class="font-medium truncate">{{ item.label }}</span>
               </div>
               <ChevronDown :class="[
-                'h-4 w-4 transition-transform duration-300',
+                'h-4 w-4 flex-shrink-0 transition-transform duration-[250ms]',
                 isMenuOpen(item.id) ? 'rotate-180' : ''
               ]" />
             </button>
@@ -115,8 +114,8 @@
             </div>
 
             <!-- Submenu (apenas quando expandido ou com hover) -->
-            <div v-if="!isCollapsed || isHovered" :class="[
-              'transition-all duration-300 ease-in-out',
+            <div v-if="!isCompact" :class="[
+              'transition-all duration-[250ms] ease-in-out',
               isMenuOpen(item.id) ? 'mt-2' : 'max-h-0 overflow-hidden'
             ]">
               <ul class="ml-4 space-y-1">
@@ -139,6 +138,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/auth.js';
+import { useSidebarLayout } from '../../composables/useSidebarLayout.js';
 import {
   Calendar, Users, ChevronDown, User, Search, FileText,
   Stethoscope, Clock, DollarSign, Eye,
@@ -148,6 +148,12 @@ import {
 
 const route = useRoute();
 const auth = useAuthStore();
+const {
+  isCollapsed,
+  isCompact,
+  toggleSidebar,
+  setHovered,
+} = useSidebarLayout();
 
 const P = { ADMIN: 1, RECEPCAO: 2, PROFISSIONAL: 3 };
 const ALL = [P.ADMIN, P.RECEPCAO, P.PROFISSIONAL];
@@ -155,8 +161,6 @@ const STAFF = [P.ADMIN, P.RECEPCAO];
 const ADMIN = [P.ADMIN];
 
 const menusAbertos = ref({});
-const isCollapsed = ref(false);
-const isHovered = ref(false);
 
 const allMenuItems = [
   {
@@ -339,10 +343,8 @@ const menuItems = computed(() => {
     .filter(Boolean);
 });
 
-// Funções
-const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value;
-  // Fechar todos os menus quando recolher
+const onToggleSidebar = () => {
+  toggleSidebar();
   if (isCollapsed.value) {
     menusAbertos.value = {};
   }

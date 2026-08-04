@@ -1,8 +1,6 @@
 <template>
-  <div class="rounded-xl border border-gray-200 bg-white shadow-sm p-4">
-    <AgendaPanoramaLegenda class="mb-4" />
-
-    <div class="grid grid-cols-7 gap-px mb-1 bg-transparent">
+  <div class="agenda-mes-root rounded-xl border border-gray-200 bg-white shadow-sm p-2 sm:p-3 flex flex-col w-full min-h-0">
+    <div class="grid grid-cols-7 gap-px mb-1 bg-transparent flex-shrink-0">
       <div
         v-for="nome in diasSemana"
         :key="nome"
@@ -12,20 +10,23 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-7 gap-1 sm:gap-1.5">
+    <div
+      class="agenda-mes-cells grid grid-cols-7 gap-1 sm:gap-1.5 flex-1 min-h-0"
+      :style="{ gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))` }"
+    >
       <button
         v-for="cel in cells"
         :key="cel.key"
         type="button"
         :disabled="!cel.inMonth"
         :class="[
-          'min-h-[96px] sm:min-h-[110px] rounded-lg border p-1.5 text-left transition-colors',
+          'min-h-0 h-full overflow-hidden rounded-lg border p-1 sm:p-1.5 text-left transition-colors flex flex-col',
           cel.inMonth ? 'hover:border-gray-300 bg-white border-gray-200' : 'bg-gray-50/80 text-gray-300 cursor-default border-transparent',
           cel.date === selectedDate ? 'ring-2 ring-gray-900' : '',
         ]"
         @click="cel.inMonth && $emit('select-day', cel.date)"
       >
-        <div class="flex justify-end mb-1">
+        <div class="flex justify-end mb-0.5 flex-shrink-0">
           <span
             :class="[
               'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold',
@@ -36,7 +37,7 @@
           </span>
         </div>
 
-        <div v-if="cel.inMonth" class="space-y-0.5">
+        <div v-if="cel.inMonth" class="space-y-0.5 min-h-0 overflow-hidden flex-1">
           <div
             v-for="card in cel.cards.slice(0, maxChips)"
             :key="card.id"
@@ -63,12 +64,10 @@
 </template>
 
 <script>
-import AgendaPanoramaLegenda from './AgendaPanoramaLegenda.vue'
 import { agruparConsultasPorData, buildMonthCells } from '../../utils/agendaPanorama.js'
 
 export default {
   name: 'AgendaMesPanorama',
-  components: { AgendaPanoramaLegenda },
   props: {
     rangeInicio: { type: String, required: true },
     selectedDate: { type: String, default: '' },
@@ -82,6 +81,9 @@ export default {
     },
     cells() {
       return buildMonthCells(this.rangeInicio, agruparConsultasPorData(this.consultas))
+    },
+    rowCount() {
+      return Math.max(1, Math.ceil(this.cells.length / 7))
     },
   },
   methods: {
