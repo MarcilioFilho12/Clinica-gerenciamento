@@ -9,8 +9,8 @@
       <template #actions>
         <div class="flex items-center space-x-4">
           <div class="text-sm text-red-600 font-medium">
-            {{ consultasVencidas.length }} consulta{{ consultasVencidas.length !== 1 ? 's' : '' }} vencida{{
-              consultasVencidas.length !== 1 ? 's' : '' }}
+            {{ totalVencidas }} consulta{{ totalVencidas !== 1 ? 's' : '' }} vencida{{
+              totalVencidas !== 1 ? 's' : '' }}
           </div>
           <button @click="exportarLista" :disabled="consultasVencidas.length === 0"
             class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 text-sm font-medium">
@@ -21,6 +21,15 @@
       </template>
     </PageHeader>
 
+    <!-- Indicadores rápidos (dashboard) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <div v-for="card in cardsIndicadores" :key="card.label"
+        class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ card.label }}</p>
+        <p class="text-2xl font-bold mt-1" :class="card.colorClass">{{ card.valor }}</p>
+      </div>
+    </div>
+
     <!-- Filtros -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -28,7 +37,7 @@
           <!-- Filtro por Período de Vencimento -->
           <div class="flex items-center space-x-2">
             <Clock class="w-4 h-4 text-gray-400" />
-            <select v-model="periodoVencimento" @change="filtrarPorPeriodo"
+            <select v-model="periodoVencimento" @change="agendarRecarga(0)"
               class="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm">
               <option value="">Todos os períodos</option>
               <option value="hoje">Vencidas hoje</option>
@@ -41,7 +50,7 @@
           <!-- Filtro por Tipo de Consulta -->
           <div class="flex items-center space-x-2">
             <FileText class="w-4 h-4 text-gray-400" />
-            <select v-model="tipoConsulta" @change="filtrarPorTipo"
+            <select v-model="tipoConsulta" @change="agendarRecarga(0)"
               class="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm">
               <option value="">Todos os tipos</option>
               <option value="retorno">Retornos</option>
@@ -54,7 +63,7 @@
           <!-- Filtro por Profissional -->
           <div class="flex items-center space-x-2">
             <UserCheck class="w-4 h-4 text-gray-400" />
-            <select v-model="profissionalSelecionado" @change="filtrarPorProfissional"
+            <select v-model="profissionalSelecionado" @change="agendarRecarga(0)"
               class="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm">
               <option value="">Todos os profissionais</option>
               <option v-for="prof in profissionais" :key="prof.id" :value="prof.id">
@@ -80,7 +89,7 @@
     </div>
 
     <!-- Estado de Carregamento -->
-    <div v-if="carregando" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+    <div v-if="carregando && consultasVencidas.length === 0" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
       <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <RefreshCw class="w-8 h-8 text-red-600 animate-spin" />
       </div>
@@ -102,7 +111,7 @@
     </div>
 
     <!-- Lista de Consultas Vencidas -->
-    <div v-else-if="consultasVencidas.length > 0" class="space-y-4">
+    <div v-else-if="consultasVencidas.length > 0" class="space-y-4" :class="{ 'opacity-60': carregando }">
       <!-- Consultas Críticas (Vencidas há mais de 30 dias) -->
       <div v-if="consultasCriticas.length > 0" class="mb-6">
         <div class="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white mb-4">
@@ -112,7 +121,7 @@
               <h2 class="text-xl font-bold">⚠️ Consultas Críticas!</h2>
               <p class="text-red-100">{{ consultasCriticas.length }} consulta{{ consultasCriticas.length !== 1 ? 's' :
                 '' }}
-                vencida{{ consultasCriticas.length !== 1 ? 's' : '' }} há mais de 30 dias</p>
+                vencida{{ consultasCriticas.length !== 1 ? 's' : '' }} há mais de 30 dias (nesta página)</p>
             </div>
           </div>
         </div>
@@ -161,8 +170,8 @@
             {{ getTituloLista() }}
           </h3>
           <p class="text-sm text-gray-500 mt-1">
-            {{ consultasVencidas.length }} consulta{{ consultasVencidas.length !== 1 ? 's' : '' }} vencida{{
-              consultasVencidas.length !== 1 ? 's' : '' }} encontrada{{ consultasVencidas.length !== 1 ? 's' : '' }}
+            {{ totalVencidas }} consulta{{ totalVencidas !== 1 ? 's' : '' }} vencida{{
+              totalVencidas !== 1 ? 's' : '' }} encontrada{{ totalVencidas !== 1 ? 's' : '' }}
           </p>
         </div>
 
@@ -272,6 +281,21 @@
             </div>
           </div>
         </div>
+
+        <!-- Paginação (server-side) -->
+        <div v-if="meta.lastPage > 1" class="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+          <span class="text-sm text-gray-500">Página {{ meta.currentPage }} de {{ meta.lastPage }}</span>
+          <div class="flex items-center space-x-2">
+            <button @click="irParaPagina(meta.currentPage - 1)" :disabled="meta.currentPage <= 1 || carregando"
+              class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+              Anterior
+            </button>
+            <button @click="irParaPagina(meta.currentPage + 1)" :disabled="meta.currentPage >= meta.lastPage || carregando"
+              class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+              Próxima
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -296,7 +320,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from '../../services/axios.js'
 import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 import {
@@ -306,37 +330,52 @@ import {
 } from 'lucide-vue-next'
 
 // ===== ESTADO REATIVO =====
-const consultasVencidas = ref([]) // Lista completa de consultas vencidas
+const consultasVencidas = ref([]) // Página atual (server-side), já formatada para a view
+const meta = ref({ currentPage: 1, lastPage: 1, total: 0 })
+const dashboard = ref(null)
 const carregando = ref(false) // Estado de carregamento
 const erro = ref('') // Mensagem de erro
 const periodoVencimento = ref('') // Período de vencimento selecionado
-const tipoConsulta = ref('') // Tipo de consulta selecionado
+const tipoConsulta = ref('') // Tipo de consulta selecionado (filtra por "procedimento" no back)
 const profissionalSelecionado = ref('') // Profissional selecionado
 
 // ===== DADOS AUXILIARES =====
 const profissionais = ref([])
 
+const totalVencidas = computed(() => meta.value.total)
+
 // ===== COMPUTED PROPERTIES =====
 
 /**
- * Filtra consultas críticas (vencidas há mais de 30 dias)
+ * Filtra consultas críticas (vencidas há mais de 30 dias) — na página atual.
  */
 const consultasCriticas = computed(() => {
   return consultasVencidas.value.filter(consulta => consulta.diasVencida > 30)
 })
 
+/**
+ * Cards de indicadores rápidos (dashboard operacional do módulo).
+ */
+const cardsIndicadores = computed(() => {
+  const hoje = dashboard.value?.hoje
+  if (!hoje) return []
+
+  return [
+    { label: 'Pendentes hoje', valor: hoje.pendentes ?? 0, colorClass: 'text-blue-600' },
+    { label: 'Confirmadas hoje', valor: hoje.confirmadas ?? 0, colorClass: 'text-indigo-600' },
+    { label: 'Em atendimento', valor: hoje.em_atendimento ?? 0, colorClass: 'text-amber-600' },
+    { label: 'Realizadas hoje', valor: hoje.realizadas ?? 0, colorClass: 'text-green-600' },
+    { label: 'Vencidas (total)', valor: dashboard.value?.vencidas ?? 0, colorClass: 'text-red-600' },
+    { label: 'Canceladas hoje', valor: hoje.canceladas ?? 0, colorClass: 'text-gray-600' },
+    { label: 'Não compareceu', valor: hoje.no_show ?? 0, colorClass: 'text-orange-600' },
+    { label: 'Taxa comparecimento', valor: formatarPercentual(dashboard.value?.taxas?.comparecimento), colorClass: 'text-green-700' },
+    { label: 'Taxa faltas', valor: formatarPercentual(dashboard.value?.taxas?.faltas), colorClass: 'text-red-700' },
+  ]
+})
+
 // ===== FUNÇÕES UTILITÁRIAS =====
 
-/**
- * Calcula quantos dias a consulta está vencida
- */
-const calcularDiasVencida = (dataVencimento) => {
-  const hoje = new Date()
-  const vencimento = new Date(dataVencimento + 'T00:00:00')
-  const diffTime = hoje - vencimento
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return Math.max(0, diffDays)
-}
+const formatarPercentual = (valor) => (valor === null || valor === undefined ? '—' : `${valor}%`)
 
 /**
  * Determina a prioridade baseada nos dias vencidos
@@ -427,101 +466,60 @@ const getTipoIcon = (tipo) => {
   return icons[String(tipo || '').toLowerCase()] || FileText
 }
 
-const toDateOnly = (value) => {
-  if (!value) return ''
-  if (typeof value === 'string') return value.slice(0, 10)
-  return ''
-}
-
-const dentroDoPeriodo = (diasVencida) => {
-  switch (periodoVencimento.value) {
-    case 'hoje':
-      return diasVencida === 0
-    case 'semana':
-      return diasVencida <= 7
-    case 'mes':
-      return diasVencida <= 30
-    case 'trimestre':
-      return diasVencida <= 90
-    default:
-      return true
-  }
-}
-
 // ===== FUNÇÕES DA API =====
 
 /**
- * Carrega consultas vencidas da API
+ * Carrega o dashboard de indicadores (cards do topo). Falha silenciosa:
+ * a tela de vencidas continua funcionando mesmo se o dashboard não responder.
  */
-const carregarConsultasVencidas = async () => {
+const carregarDashboard = async () => {
+  try {
+    const { data } = await axios.get('/consultas/dashboard')
+    dashboard.value = data?.data ?? null
+  } catch (error) {
+    console.error('Erro ao carregar dashboard de consultas:', error)
+  }
+}
+
+/**
+ * Carrega consultas vencidas direto do banco (filtro server-side real:
+ * status PENDENTE/VENCIDA + data_hora < agora), já paginado.
+ */
+const carregarConsultasVencidas = async (pagina = 1) => {
   carregando.value = true
   erro.value = ''
 
   try {
-    const hoje = new Date()
-    const fim = new Date(hoje)
-    const inicio = new Date(hoje)
-    inicio.setDate(inicio.getDate() - 180)
+    const params = { page: pagina, per_page: 20 }
+    if (periodoVencimento.value) params.periodo = periodoVencimento.value
+    if (profissionalSelecionado.value) params.user_id = profissionalSelecionado.value
+    if (tipoConsulta.value) params.procedimento = tipoConsulta.value
 
-    const fmt = (d) => d.toISOString().slice(0, 10)
-    const params = {
-      data_inicio: fmt(inicio),
-      data_fim: fmt(fim),
+    const { data } = await axios.get('/consultas/vencidas', { params })
+    const itens = data?.data ?? []
+
+    consultasVencidas.value = itens.map((c) => ({
+      id: c.id,
+      paciente: c.paciente || 'Paciente',
+      pacienteId: c.paciente_id,
+      tipoConsulta: c.procedimento || 'consulta',
+      dataVencimento: c.data_vencimento,
+      diasVencida: c.dias_vencida ?? 0,
+      prioridade: determinarPrioridade(c.dias_vencida ?? 0),
+      profissional: c.profissional || '—',
+      profissionalId: c.profissional_id,
+      telefone: c.telefone || '—',
+    }))
+
+    meta.value = {
+      currentPage: data?.meta?.current_page ?? 1,
+      lastPage: data?.meta?.last_page ?? 1,
+      total: data?.meta?.total ?? itens.length,
     }
-    if (profissionalSelecionado.value) {
-      params.user_id = profissionalSelecionado.value
-    }
-
-    const [agendaRes, usersRes] = await Promise.all([
-      axios.get('/consultas/agenda-periodo', { params }),
-      axios.get('/usuarios').catch(() => ({ data: { data: [] } })),
-    ])
-
-    const consultas = agendaRes.data?.data?.consultas || []
-    const users = usersRes.data?.data || usersRes.data || []
-    profissionais.value = users
-      .filter((u) => Number(u.profile_id) === 3)
-      .map((u) => ({ id: u.id, nome: u.name }))
 
     if (profissionais.value.length === 0) {
-      const mapa = new Map()
-      consultas.forEach((c) => {
-        if (c.user_id && c.user?.name) {
-          mapa.set(c.user_id, { id: c.user_id, nome: c.user.name })
-        }
-      })
-      profissionais.value = [...mapa.values()]
+      await carregarProfissionais()
     }
-
-    // Não encerradas (4) nem canceladas (5)
-    let lista = consultas
-      .filter((c) => ![4, 5].includes(Number(c.situacao_id)))
-      .map((c) => {
-        const dataVencimento = toDateOnly(c.data)
-        const diasVencida = calcularDiasVencida(dataVencimento)
-        const tipo = c.procedimento || 'consulta'
-        return {
-          id: c.id,
-          paciente: c.paciente?.nome || 'Paciente',
-          pacienteId: c.paciente_id,
-          tipoConsulta: tipo,
-          dataVencimento,
-          diasVencida,
-          prioridade: determinarPrioridade(diasVencida),
-          profissional: c.user?.name || '—',
-          profissionalId: c.user_id,
-          telefone: c.paciente?.contato || '—',
-        }
-      })
-      .filter((c) => dentroDoPeriodo(c.diasVencida))
-
-    if (tipoConsulta.value) {
-      const tipo = tipoConsulta.value.toLowerCase()
-      lista = lista.filter((c) => String(c.tipoConsulta).toLowerCase().includes(tipo))
-    }
-
-    consultasVencidas.value = lista.sort((a, b) => b.diasVencida - a.diasVencida)
-
   } catch (error) {
     console.error('Erro ao carregar consultas vencidas:', error)
 
@@ -534,33 +532,32 @@ const carregarConsultasVencidas = async () => {
     }
 
     consultasVencidas.value = []
-
   } finally {
     carregando.value = false
   }
 }
 
-// ===== FUNÇÕES DE FILTRO =====
-
-/**
- * Filtra consultas por período de vencimento
- */
-const filtrarPorPeriodo = async () => {
-  await carregarConsultasVencidas()
+const carregarProfissionais = async () => {
+  try {
+    const { data } = await axios.get('/consultas/profissionais')
+    const lista = data?.data ?? []
+    profissionais.value = lista.map((u) => ({ id: u.id, nome: u.name }))
+  } catch (error) {
+    console.error('Erro ao carregar profissionais:', error)
+  }
 }
 
-/**
- * Filtra consultas por tipo
- */
-const filtrarPorTipo = async () => {
-  await carregarConsultasVencidas()
+const irParaPagina = (pagina) => {
+  if (pagina < 1 || pagina > meta.value.lastPage) return
+  carregarConsultasVencidas(pagina)
 }
 
-/**
- * Filtra consultas por profissional
- */
-const filtrarPorProfissional = async () => {
-  await carregarConsultasVencidas()
+// ===== FILTROS INSTANTÂNEOS (debounce leve, sem recarregar a página) =====
+
+let debounceTimer = null
+const agendarRecarga = (delayMs = 250) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => carregarConsultasVencidas(1), delayMs)
 }
 
 /**
@@ -570,13 +567,13 @@ const limparFiltros = () => {
   periodoVencimento.value = ''
   tipoConsulta.value = ''
   profissionalSelecionado.value = ''
-  carregarConsultasVencidas()
+  carregarConsultasVencidas(1)
 }
 
 // ===== FUNÇÃO DE EXPORTAÇÃO =====
 
 /**
- * Exporta a lista de consultas vencidas em formato .txt
+ * Exporta a página atual de consultas vencidas em formato .txt
  */
 const exportarLista = () => {
   if (consultasVencidas.value.length === 0) {
@@ -588,11 +585,12 @@ const exportarLista = () => {
   let conteudo = `RELATÓRIO DE CONSULTAS VENCIDAS\n`
   conteudo += `Gerado em: ${dataAtual}\n`
   conteudo += `${getTituloLista()}\n`
-  conteudo += `Total: ${consultasVencidas.value.length} consulta${consultasVencidas.value.length !== 1 ? 's' : ''} vencida${consultasVencidas.value.length !== 1 ? 's' : ''}\n\n`
+  conteudo += `Total (geral): ${totalVencidas.value} | Nesta página: ${consultasVencidas.value.length}\n`
+  conteudo += `Página ${meta.value.currentPage} de ${meta.value.lastPage}\n\n`
 
   // Destaque para consultas críticas
   if (consultasCriticas.value.length > 0) {
-    conteudo += `⚠️ CONSULTAS CRÍTICAS (${consultasCriticas.value.length}) - Mais de 30 dias:\n`
+    conteudo += `⚠️ CONSULTAS CRÍTICAS (${consultasCriticas.value.length}) - Mais de 30 dias (nesta página):\n`
     conteudo += `${'='.repeat(70)}\n`
     consultasCriticas.value.forEach(consulta => {
       conteudo += `• ${consulta.paciente} - ${consulta.tipoConsulta} - ${consulta.diasVencida} dias - ${consulta.telefone}\n`
@@ -625,9 +623,9 @@ const exportarLista = () => {
   })
 
   // Resumo estatístico
-  conteudo += `RESUMO ESTATÍSTICO:\n`
+  conteudo += `RESUMO ESTATÍSTICO (página atual):\n`
   conteudo += `${'='.repeat(30)}\n`
-  conteudo += `Total de consultas vencidas: ${consultasVencidas.value.length}\n`
+  conteudo += `Consultas vencidas nesta página: ${consultasVencidas.value.length}\n`
   conteudo += `Consultas críticas (>30 dias): ${consultasCriticas.value.length}\n`
   conteudo += `Média de dias vencidos: ${Math.round(consultasVencidas.value.reduce((acc, c) => acc + c.diasVencida, 0) / consultasVencidas.value.length)} dias\n`
 
@@ -638,17 +636,22 @@ const exportarLista = () => {
   const nomeArquivo = `consultas-vencidas-${new Date().toISOString().split('T')[0]}.txt`
   elemento.download = nomeArquivo
   elemento.click()
-
-  console.log('Lista exportada:', nomeArquivo)
 }
+
+// ===== ATUALIZAÇÃO AUTOMÁTICA DOS CARDS =====
+// Os indicadores do topo se atualizam sozinhos, sem exigir recarregar a página.
+let atualizacaoAutomaticaTimer = null
 
 // ===== INICIALIZAÇÃO =====
 
-/**
- * Carrega consultas vencidas quando o componente é montado
- */
 onMounted(() => {
-  console.log('Componente ConsultasVencidas montado')
-  carregarConsultasVencidas()
+  carregarConsultasVencidas(1)
+  carregarDashboard()
+  atualizacaoAutomaticaTimer = setInterval(carregarDashboard, 60000)
+})
+
+onUnmounted(() => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  if (atualizacaoAutomaticaTimer) clearInterval(atualizacaoAutomaticaTimer)
 })
 </script>

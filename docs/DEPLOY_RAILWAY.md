@@ -49,6 +49,28 @@ Se CREATE falhar: crie `marag_clinic_piloto`, registre em `marag_central.clinics
 php artisan migrate --database=mysql --force
 ```
 
+**Multi-clínica:** depois do primeiro deploy, toda migration nova precisa ser aplicada em **cada** database de clínica (o `migrate` comum só afeta a conexão atualmente configurada). Isso já é **automático**: o `railway.toml` do serviço da API define um `preDeployCommand` que roda `migrate --database=central` + `clinic:migrate-all` antes de cada deploy entrar no ar (se falhar, o Railway cancela o deploy e mantém a versão anterior — não precisa rodar nada manualmente). Só rode à mão se precisar depurar:
+
+```bash
+php artisan clinic:migrate-all
+```
+
+### Scheduler (jobs automáticos: consultas vencidas / no-show)
+
+O Railway **não** tem cron do SO. Sem algo chamando `php artisan schedule:run` periodicamente, os jobs `consultas:marcar-vencidas` e `consultas:marcar-no-show` (definidos em `console.php`, a cada 5 min) **nunca executam**, mesmo que o código esteja correto.
+
+**Recomendado: serviço worker dedicado** (não usar o Cron Job nativo do Railway aqui — o mínimo dele é 5 min e o horário de disparo **não é garantido no minuto exato**, o que pode desalinhar com o `*/5 * * * *` interno do Laravel e pular execuções):
+
+1. No projeto Railway: **+ New → GitHub Repo** → mesmo repositório.
+2. **Root Directory:** `Back-end-clinica` (igual ao serviço da API).
+3. **Settings → Deploy → Start Command:** `php artisan schedule:work`
+4. **Não** definir Cron Schedule nesse serviço (ele roda contínuo, não pontual).
+5. Copiar as mesmas variáveis de ambiente do serviço da API.
+
+Alternativa mais barata (aceitando o desalinhamento acima): Cron Job nativo do Railway, comando `php artisan schedule:run`, expressão `*/5 * * * *`.
+
+Sem um desses dois no ar, "Consultas Vencidas" só atualiza quando alguém chama manualmente `php artisan consultas:marcar-vencidas` / `...marcar-no-show`.
+
 ## 2. Serviço API (Railway)
 
 - **Root Directory:** `Back-end-clinica` (obrigatório — monorepo com o front)

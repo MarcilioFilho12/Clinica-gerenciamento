@@ -122,18 +122,65 @@ Front: `meta.profiles` no router + filtro do Sidebar + `auth.hasProfile(...)`.
 
 ---
 
-## 4. Status de consulta (IDs)
+## 4. Status de consulta (ciclo de vida)
 
-Tabela `situacoes` compartilhada semanticamente (seed nas migrations):
+Uma consulta é **um único registro** do início ao fim — nunca duplicada por causa de mudança de status. Quem muda é o campo `consultas.status` (string), sempre via `App\Services\ConsultaStatusService`.
 
-| ID | Uso em consulta |
-|----|-----------------|
-| 1 | Agendada (criação) |
-| 4 | Encerrada / realizada |
-| 5 | Cancelada |
-| 6 | Em atendimento (após “Chamar”) |
+### 4.1 Enum (`App\Support\ConsultaStatus`)
 
-Campos extras: `chegada_em`, `codigo_chegada`, `pago`, `forma_pagamento`, `valor`, `prioridade`, `parceiro_id`.
+| Status | Significado |
+|--------|--------------|
+| `PENDENTE` | Agendada, no futuro, aguardando confirmação/chegada |
+| `CONFIRMADA` | Paciente confirmou presença antes do horário |
+| `VENCIDA` | `PENDENTE` cujo horário passou sem chegada/cancelamento (job automático) |
+| `CHEGOU` | Paciente chegou (`chegada_em` + `codigo_chegada`) → entra na fila |
+| `EM_ATENDIMENTO` | Chamada pelo profissional (broadcast `PacienteChamado`) |
+| `REALIZADA` | Atendimento concluído (ficha clínica encerrada) |
+| `CANCELADA` | Cancelada (motivo obrigatório) — registro preservado |
+| `TRANSFERIDA` | Encerrada aqui e **encadeada** para uma nova consulta (`consulta_origem_id`) — outro profissional/horário |
+| `REAGENDADA` | Data/horário alterados **no mesmo registro** (guarda `data_anterior`/`horario_anterior_*`) |
+| `NO_SHOW` | Paciente não compareceu (tolerância pós-horário, job automático) |
+
+Transições permitidas ficam centralizadas em `ConsultaStatus::transicoesPermitidas()` — qualquer transição fora da matriz é bloqueada com HTTP 422, nunca falha silenciosamente.
+
+### 4.2 Compatibilidade com `situacoes` (legado)
+
+A tabela `situacoes` (1 Agendada, 4 Encerrada, 5 Cancelada, 6 Em atendimento) continua existindo e é **sincronizada automaticamente** pelo service a cada transição (`ConsultaStatus::legacySituacaoId()`), para não quebrar telas/relatórios antigos que ainda leem `situacao_id`. Novas features devem ler `status`.
+
+### 4.3 Onde a mudança de status acontece
+
+| Ação | Endpoint | Efeito |
+|------|----------|--------|
+| Confirmar | `PUT /consultas/{id}/confirmar` | → `CONFIRMADA` |
+| Chegada | `POST /consultas/{id}/confirmar-chegada` | → `CHEGOU` |
+| Chamar | `POST /consultas/{id}/chamar` | → `EM_ATENDIMENTO` + broadcast |
+| Finalizar | `PUT /consultas/{id}/finalizar` (ou ficha clínica) | → `REALIZADA` |
+| Cancelar | `PUT /consultas/{id}/cancelar` | → `CANCELADA` (motivo obrigatório) |
+| Transferir | `POST /consultas/{id}/transferir` | Origem → `TRANSFERIDA`; cria **nova** consulta `PENDENTE` linkada |
+| Reagendar | `POST /consultas/{id}/reagendar` | Mesmo registro → `REAGENDADA`, nova data/horário |
+| No-show manual | `POST /consultas/{id}/marcar-no-show` | → `NO_SHOW` |
+| Vencidas (relatório) | `GET /consultas/vencidas` | Lista paginada/filtrada server-side |
+| Dashboard | `GET /consultas/dashboard` | Contadores por status (indicadores rápidos) |
+| Histórico | `GET /consultas/{id}/historico` | Linha do tempo auditável (`consulta_historico`) |
+
+Toda chamada ao service grava uma linha em `consulta_historico` (status anterior/novo, usuário, ação, motivo, IP, user-agent). O `App\Observers\ConsultaObserver` é uma rede de segurança: se algum código alterar `status` sem passar pelo service, o histórico ainda é gravado (com ação genérica `alteracao_direta`), então **nada fica sem auditoria**.
+
+### 4.4 Jobs automáticos (Scheduler)
+
+Definidos em `Back-end-clinica/console.php` (Laravel 11+; `Kernel::schedule()` não é mais usado), a cada 5 minutos, percorrendo todas as clínicas ativas via `TenantContext`:
+
+- `consultas:marcar-vencidas` → `PENDENTE` com `data`/`horario_inicio` no passado vira `VENCIDA`
+- `consultas:marcar-no-show` → `CONFIRMADA`/`CHEGOU` sem atendimento após `NO_SHOW_TOLERANCIA_MINUTOS` (padrão 30 min, `config/consultas.php`) vira `NO_SHOW`
+
+**Importante:** isso só funciona se algo estiver chamando `php artisan schedule:run` a cada minuto no servidor (cron do SO, ou um "Cron Job" do Railway). Ver [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md).
+
+Como o app é multi-tenant (1 MySQL por clínica), migrations novas precisam ser aplicadas em **todas** as clínicas, não só na conexão padrão:
+
+```bash
+php artisan clinic:migrate-all
+```
+
+Campos extras (mantidos): `chegada_em`, `codigo_chegada`, `pago`, `forma_pagamento`, `valor`, `prioridade`, `parceiro_id`.
 
 ---
 

@@ -36,12 +36,15 @@ Vue SPA (Pinia)  --JWT-->  Laravel API  -->  MySQL
 | ADR-008 | White-label parcial; login/© Marag (D14) | Aceito |
 | ADR-005 | Telão de chamada público (sem login) | Aceito (D4) |
 | ADR-006 | RBAC básico admin/recepção/profissional desde Fase 1 | Aceito (D5) |
+| ADR-009 | Ciclo de vida da consulta = 1 registro + campo `status` (enum) + `consulta_historico` (auditoria), sem duplicar linhas; `situacoes`/`situacao_id` mantido só por compat legado, sincronizado pelo `ConsultaStatusService` | Aceito |
 
 ## Banco
 
 - MySQL 8, database local típico: `sturmerlocaldb`
 - Migrations em `database/migrations`
+- Multi-tenant: `php artisan clinic:migrate-all` roda migrations em **todas** as clínicas ativas (o `migrate` padrão só afeta a conexão atual)
 - Profiles seed: Administrador, Recepção, Profissional
+- `consulta_historico`: trilha de auditoria append-only de toda mudança de status de consulta (nunca editada/apagada) — ver [FUNCIONAMENTO_TECNICO.md §4](FUNCIONAMENTO_TECNICO.md)
 
 ## Fronteiras técnicas
 

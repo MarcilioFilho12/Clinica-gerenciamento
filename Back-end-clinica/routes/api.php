@@ -42,8 +42,13 @@ Route::middleware('clinic')->group(function () {
             Route::get('consultas/fila-espera/estatisticas', [ConsultaController::class, 'estatisticasFilaEspera']);
             Route::post('consultas/fila-espera/adicionar', [ConsultaController::class, 'adicionarFilaEspera']);
             Route::get('consultas/pacientes-em-atendimento', [ConsultaController::class, 'pacientesEmAtendimento']);
+            // Rotas de segmento fixo (vencidas/dashboard) precisam vir ANTES de consultas/{id},
+            // senão o Laravel casaria "vencidas"/"dashboard" como se fossem o {id}.
+            Route::get('consultas/vencidas', [ConsultaController::class, 'vencidas']);
+            Route::get('consultas/dashboard', [ConsultaController::class, 'dashboard']);
             Route::post('consultas/{id}/confirmar-chegada', [ConsultaController::class, 'confirmarChegada']);
             Route::get('consultas/{id}/detalhes', [ConsultaController::class, 'detalhesConsulta']);
+            Route::get('consultas/{id}/historico', [ConsultaController::class, 'historicoConsulta']);
             Route::get('consultas/{id}', [ConsultaController::class, 'show']);
             Route::post('consultas', [ConsultaController::class, 'store']);
             Route::put('consultas/{id}', [ConsultaController::class, 'update']);
@@ -53,6 +58,11 @@ Route::middleware('clinic')->group(function () {
             Route::post('consultas/{id}/finalizar', [ConsultaController::class, 'finalizar']);
             Route::post('consultas/{id}/chamar', [ConsultaController::class, 'chamarPaciente']);
             Route::put('consultas/{id}/encerrar', [ConsultaController::class, 'encerrarConsulta']);
+
+            // Ciclo de vida completo (status/gestão de consultas vencidas)
+            Route::post('consultas/{id}/transferir', [ConsultaController::class, 'transferir']);
+            Route::post('consultas/{id}/reagendar', [ConsultaController::class, 'reagendar']);
+            Route::post('consultas/{id}/no-show', [ConsultaController::class, 'marcarNoShow']);
 
             Route::get('configuracoes-agendamento', [ConfiguracaoAgendamentoController::class, 'index']);
             Route::get('configuracoes-agendamento/{id}', [ConfiguracaoAgendamentoController::class, 'show']);

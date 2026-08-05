@@ -7,6 +7,8 @@ use App\Models\Consulta;
 use App\Models\ConfiguracoesAgendamento;
 use App\Models\User;
 use App\Events\PacienteChamado;
+use App\Services\ConsultaStatusService;
+use App\Support\ConsultaStatus;
 use App\Support\Profiles;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -18,6 +20,10 @@ use RuntimeException;
 
 class ConsultaController extends Controller
 {
+    public function __construct(private readonly ConsultaStatusService $consultaStatusService)
+    {
+    }
+
     /**
      * Retorna a agenda completa com profissionais e horários disponíveis
      * Compatível com a estrutura esperada pelo frontend
@@ -327,6 +333,7 @@ class ConsultaController extends Controller
                         'forma_pagamento' => $request->boolean('pago') ? $request->forma_pagamento : null,
                         'valor' => $request->valor,
                         'situacao_id' => $historico ? 4 : 1,
+                        'status' => $historico ? ConsultaStatus::REALIZADA : ConsultaStatus::PENDENTE,
                         'configuracao_id' => $configuracaoId,
                     ]);
                 });
@@ -798,10 +805,22 @@ class ConsultaController extends Controller
                 'motivo_cancelamento' => 'required|string|max:500',
             ]);
 
-            $consulta->update([
-                'situacao_id' => 5, // Cancelada (situacao_id 5 conforme migration)
-                'motivo_cancelamento' => $request->motivo_cancelamento,
-            ]);
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::CANCELADA,
+                    $request,
+                    acao: 'cancelar',
+                    motivo: $request->motivo_cancelamento,
+                    extra: [
+                        'motivo_cancelamento' => $request->motivo_cancelamento,
+                        'cancelado_por_id' => $request->user()?->id,
+                        'cancelado_em' => now(),
+                    ],
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             return response()->json([
                 'success' => true,
@@ -829,9 +848,16 @@ class ConsultaController extends Controller
         try {
             $consulta = Consulta::findOrFail($id);
 
-            $consulta->update([
-                'situacao_id' => 2, // Confirmada (assumindo que 2 = confirmada)
-            ]);
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::CONFIRMADA,
+                    $request,
+                    acao: 'confirmar',
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             return response()->json([
                 'success' => true,
@@ -857,10 +883,19 @@ class ConsultaController extends Controller
                 'observacoes' => 'nullable|string',
             ]);
 
-            $consulta->update([
-                'situacao_id' => 4, // Finalizada (assumindo que 4 = finalizada)
-                'observacoes' => $request->observacoes ?? $consulta->observacoes,
-            ]);
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::REALIZADA,
+                    $request,
+                    acao: 'finalizar',
+                    extra: [
+                        'observacoes' => $request->observacoes ?? $consulta->observacoes,
+                    ],
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             return response()->json([
                 'success' => true,
@@ -881,6 +916,27 @@ class ConsultaController extends Controller
                 'message' => 'Erro ao finalizar consulta',
             ], 500);
         }
+    }
+
+    private function respostaExcecaoStatus(RuntimeException $e): JsonResponse
+    {
+        $msg = $e->getMessage();
+
+        if (str_starts_with($msg, 'TRANSICAO_INVALIDA|')) {
+            return response()->json([
+                'success' => false,
+                'message' => substr($msg, strlen('TRANSICAO_INVALIDA|')),
+            ], 422);
+        }
+
+        if ($msg === 'STATUS_INVALIDO') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Status informado é inválido.',
+            ], 422);
+        }
+
+        throw $e;
     }
 
     /**
@@ -1249,10 +1305,16 @@ class ConsultaController extends Controller
         try {
             $consulta = Consulta::findOrFail($id);
 
-            // Atualizar situação para "em atendimento"
-            // situacao_id 6 = em_atendimento (conforme migration)
-            $consulta->situacao_id = 6;
-            $consulta->save();
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::EM_ATENDIMENTO,
+                    $request,
+                    acao: 'chamar',
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             // Disparar evento de broadcast
             $consultaCarregada = $consulta->load(['paciente', 'user']);
@@ -1305,10 +1367,20 @@ class ConsultaController extends Controller
             // Gerar código de chegada (ex: sequencial do dia ou timestamp)
             $codigoChegada = $this->gerarCodigoChegada($consulta->data);
 
-            // Marcar como chegou e definir código
-            $consulta->chegada_em = now();
-            $consulta->codigo_chegada = $codigoChegada;
-            $consulta->save();
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::CHEGOU,
+                    $request,
+                    acao: 'confirmar_chegada',
+                    extra: [
+                        'chegada_em' => now(),
+                        'codigo_chegada' => $codigoChegada,
+                    ],
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             return response()->json([
                 'success' => true,
@@ -1379,6 +1451,7 @@ class ConsultaController extends Controller
                 'procedimento' => $request->procedimento ?? 'Consulta de Rotina',
                 'observacoes' => $request->observacoes,
                 'situacao_id' => 1, // Agendada (aguardando atendimento)
+                'status' => ConsultaStatus::CHEGOU, // já nasce com chegada confirmada (fila direta)
                 'chegada_em' => now(), // Paciente já chegou ao ser adicionado na fila
                 'codigo_chegada' => $codigoChegada, // Código gerado automaticamente
             ]);
@@ -1707,7 +1780,11 @@ class ConsultaController extends Controller
                 'parceiro',
                 'fichaClinica',
                 'situacao',
-                'configuracao'
+                'configuracao',
+                'historico.usuario:id,name',
+                'consultaOrigem:id,data,horario_inicio,user_id',
+                'profissionalAnterior:id,name',
+                'profissionalNovo:id,name',
             ])->findOrFail($id);
 
             // Formatar data
@@ -1801,6 +1878,8 @@ class ConsultaController extends Controller
                 ];
             }
 
+            $ultimoHistorico = $consulta->historico->first();
+
             // Montar resposta completa
             $detalhes = [
                 'id' => $consulta->id,
@@ -1819,6 +1898,49 @@ class ConsultaController extends Controller
                 'tem_ficha_clinica' => $fichaClinica !== null,
                 'created_at' => $consulta->created_at ? $consulta->created_at->format('Y-m-d H:i:s') : null,
                 'updated_at' => $consulta->updated_at ? $consulta->updated_at->format('Y-m-d H:i:s') : null,
+
+                // Ciclo de vida (aditivo — não substitui os campos acima)
+                'status_atual' => $consulta->status,
+                'status_label' => ConsultaStatus::label($consulta->status ?? ConsultaStatus::PENDENTE),
+                'tempo_em_status_minutos' => $consulta->tempo_em_status_minutos,
+                'motivo' => $consulta->motivo_cancelamento ?? $consulta->motivo_transferencia ?? $consulta->motivo_reagendamento,
+                'ultima_alteracao' => $ultimoHistorico ? [
+                    'status_anterior' => $ultimoHistorico->status_anterior,
+                    'status_novo' => $ultimoHistorico->status_novo,
+                    'acao' => $ultimoHistorico->acao,
+                    'motivo' => $ultimoHistorico->motivo,
+                    'data' => $ultimoHistorico->created_at?->format('Y-m-d H:i:s'),
+                ] : null,
+                'responsavel' => $ultimoHistorico?->usuario ? [
+                    'id' => $ultimoHistorico->usuario->id,
+                    'nome' => $ultimoHistorico->usuario->name,
+                ] : null,
+                'transferencia' => $consulta->consulta_origem_id || $consulta->profissional_novo_id ? [
+                    'consulta_origem_id' => $consulta->consulta_origem_id,
+                    'origem' => $consulta->consultaOrigem ? [
+                        'id' => $consulta->consultaOrigem->id,
+                        'data' => $consulta->consultaOrigem->data?->format('Y-m-d'),
+                    ] : null,
+                    'profissional_anterior' => $consulta->profissionalAnterior?->name,
+                    'profissional_novo' => $consulta->profissionalNovo?->name,
+                    'motivo' => $consulta->motivo_transferencia,
+                ] : null,
+                'reagendamento' => $consulta->data_anterior ? [
+                    'data_anterior' => $consulta->data_anterior->format('Y-m-d'),
+                    'horario_anterior_inicio' => $consulta->horario_anterior_inicio?->format('H:i'),
+                    'horario_anterior_fim' => $consulta->horario_anterior_fim?->format('H:i'),
+                    'motivo' => $consulta->motivo_reagendamento,
+                ] : null,
+                'historico' => $consulta->historico->map(fn ($h) => [
+                    'id' => $h->id,
+                    'status_anterior' => $h->status_anterior,
+                    'status_novo' => $h->status_novo,
+                    'acao' => $h->acao,
+                    'motivo' => $h->motivo,
+                    'observacao' => $h->observacao,
+                    'usuario' => $h->usuario?->name,
+                    'data' => $h->created_at?->format('Y-m-d H:i:s'),
+                ])->values(),
             ];
 
             return response()->json([
@@ -1851,9 +1973,7 @@ class ConsultaController extends Controller
             ]);
 
             // Preparar dados para atualização
-            $dadosAtualizacao = [
-                'situacao_id' => 4, // Encerrada
-            ];
+            $dadosAtualizacao = [];
 
             // Se houver observações finais, concatenar às observações existentes
             if ($request->observacoes_finais) {
@@ -1869,8 +1989,18 @@ class ConsultaController extends Controller
                 }
             }
 
-            // Atualizar consulta
-            $consulta->update($dadosAtualizacao);
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::REALIZADA,
+                    $request,
+                    acao: 'encerrar',
+                    observacao: $request->observacoes_finais,
+                    extra: $dadosAtualizacao,
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
 
             // Carregar relacionamentos
             $consulta->load(['paciente', 'user', 'parceiro', 'situacao', 'fichaClinica']);
@@ -1893,6 +2023,386 @@ class ConsultaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao encerrar consulta',
+            ], 500);
+        }
+    }
+
+    /**
+     * Transfere a consulta para outro profissional/horário.
+     * NÃO duplica: a origem fecha como TRANSFERIDA e uma nova consulta nasce
+     * encadeada por consulta_origem_id (auditável, rastreável).
+     */
+    public function transferir(Request $request, $id): JsonResponse
+    {
+        try {
+            $consulta = Consulta::findOrFail($id);
+
+            $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'data' => 'required|date',
+                'horario_inicio' => 'required|date_format:H:i',
+                'horario_fim' => 'required|date_format:H:i|after:horario_inicio',
+                'motivo' => 'nullable|string|max:500',
+            ]);
+
+            if ($erro = $this->motivoProfissionalInvalido((int) $request->user_id)) {
+                return response()->json(['success' => false, 'message' => $erro], 422);
+            }
+
+            try {
+                $nova = $this->consultaStatusService->transferir(
+                    $consulta,
+                    (int) $request->user_id,
+                    $request->data,
+                    $request->horario_inicio,
+                    $request->horario_fim,
+                    $request->motivo,
+                    $request,
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consulta transferida com sucesso!',
+                'data' => $nova->load('paciente', 'parceiro', 'situacao', 'consultaOrigem'),
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao transferir consulta',
+            ], 500);
+        }
+    }
+
+    /**
+     * Reagenda a consulta (mesma linha, sem duplicar). Guarda data/horário
+     * anteriores e retorna o status para PENDENTE automaticamente.
+     */
+    public function reagendar(Request $request, $id): JsonResponse
+    {
+        try {
+            $consulta = Consulta::findOrFail($id);
+
+            $request->validate([
+                'data' => 'required|date',
+                'horario_inicio' => 'required|date_format:H:i',
+                'horario_fim' => 'required|date_format:H:i|after:horario_inicio',
+                'motivo' => 'nullable|string|max:500',
+            ]);
+
+            if ($this->verificarConflitoHorario(
+                $consulta->user_id,
+                $request->data,
+                $request->horario_inicio,
+                $request->horario_fim,
+                $consulta->id,
+                true,
+            )) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Horário já ocupado para este profissional.',
+                ], 422);
+            }
+
+            try {
+                $consulta = $this->consultaStatusService->reagendar(
+                    $consulta,
+                    $request->data,
+                    $request->horario_inicio,
+                    $request->horario_fim,
+                    $request->motivo,
+                    $request,
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consulta reagendada com sucesso!',
+                'data' => $consulta->load('paciente', 'parceiro', 'situacao'),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao reagendar consulta',
+            ], 500);
+        }
+    }
+
+    /**
+     * Marca manualmente uma consulta como NO_SHOW (não compareceu).
+     * O marcador automático por tolerância roda via Scheduler (ver Commands\MarcarConsultasNoShowCommand).
+     */
+    public function marcarNoShow(Request $request, $id): JsonResponse
+    {
+        try {
+            $consulta = Consulta::findOrFail($id);
+
+            $request->validate([
+                'observacao' => 'nullable|string|max:500',
+            ]);
+
+            try {
+                $consulta = $this->consultaStatusService->transicionar(
+                    $consulta,
+                    ConsultaStatus::NO_SHOW,
+                    $request,
+                    acao: 'no_show_manual',
+                    observacao: $request->observacao,
+                    extra: ['no_show_em' => now()],
+                );
+            } catch (RuntimeException $e) {
+                return $this->respostaExcecaoStatus($e);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consulta marcada como não comparecimento.',
+                'data' => $consulta->load('paciente', 'parceiro', 'situacao'),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao marcar não comparecimento',
+            ], 500);
+        }
+    }
+
+    /**
+     * Consultas Vencidas — regra oficial: status PENDENTE/VENCIDA com data_hora < agora.
+     * Exclui automaticamente REALIZADA, CANCELADA, TRANSFERIDA, NO_SHOW, REAGENDADA e CONFIRMADA.
+     * Filtro e paginação feitos no banco (não no front).
+     */
+    public function vencidas(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'periodo' => 'nullable|in:hoje,semana,mes,trimestre',
+                'user_id' => 'nullable|exists:users,id',
+                'paciente_id' => 'nullable|exists:cadastros,id',
+                'parceiro_id' => 'nullable|exists:parceiros,id',
+                'procedimento' => 'nullable|string|max:255',
+                'per_page' => 'nullable|integer|min:1|max:100',
+            ]);
+
+            // Job periódico garante o marcador; aqui também promovemos on-the-fly
+            // qualquer PENDENTE vencida que o job ainda não tenha alcançado (zero espera para o usuário).
+            $this->promoverPendentesVencidas();
+
+            $query = Consulta::with(['paciente', 'user', 'parceiro'])->vencidas();
+
+            if ($request->filled('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+            if ($request->filled('paciente_id')) {
+                $query->where('paciente_id', $request->paciente_id);
+            }
+            if ($request->filled('parceiro_id')) {
+                $query->where('parceiro_id', $request->parceiro_id);
+            }
+            if ($request->filled('procedimento')) {
+                $query->where('procedimento', 'like', '%'.$request->procedimento.'%');
+            }
+
+            if ($request->filled('periodo')) {
+                $limite = match ($request->periodo) {
+                    'hoje' => now()->startOfDay(),
+                    'semana' => now()->subDays(7)->startOfDay(),
+                    'mes' => now()->subDays(30)->startOfDay(),
+                    'trimestre' => now()->subDays(90)->startOfDay(),
+                    default => null,
+                };
+                if ($limite) {
+                    $query->aPartirDoMomento($limite);
+                }
+            }
+
+            $consultas = $query
+                ->orderBy('data')
+                ->orderBy('horario_inicio')
+                ->paginate($request->integer('per_page', 20));
+
+            $consultas->getCollection()->transform(function (Consulta $consulta) {
+                $vencimento = Carbon::parse($consulta->data->format('Y-m-d').' '.$consulta->horario_inicio->format('H:i'));
+
+                return [
+                    'id' => $consulta->id,
+                    'paciente_id' => $consulta->paciente_id,
+                    'paciente' => $consulta->paciente?->nome ?? 'Paciente',
+                    'telefone' => $consulta->paciente?->contato ?? '—',
+                    'profissional_id' => $consulta->user_id,
+                    'profissional' => $consulta->user?->name ?? '—',
+                    'procedimento' => $consulta->procedimento ?? 'Consulta',
+                    'parceiro' => $consulta->parceiro?->nome,
+                    'status' => $consulta->status,
+                    'data_vencimento' => $vencimento->format('Y-m-d'),
+                    'horario' => $vencimento->format('H:i'),
+                    'dias_vencida' => now()->startOfDay()->diffInDays($vencimento->copy()->startOfDay()),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Consultas vencidas listadas com sucesso',
+                'data' => $consultas->items(),
+                'meta' => [
+                    'current_page' => $consultas->currentPage(),
+                    'last_page' => $consultas->lastPage(),
+                    'per_page' => $consultas->perPage(),
+                    'total' => $consultas->total(),
+                ],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados inválidos',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar consultas vencidas',
+            ], 500);
+        }
+    }
+
+    /**
+     * Promove PENDENTE -> VENCIDA imediatamente para quem consulta a tela (evita
+     * esperar até 5 minutos do job agendado). Reaproveita o mesmo Service do
+     * Scheduler, então gera histórico normalmente (nada de UPDATE silencioso).
+     */
+    private function promoverPendentesVencidas(): void
+    {
+        $this->consultaStatusService->marcarVencidasAutomaticamente();
+    }
+
+    /**
+     * Histórico completo (auditoria) de uma consulta.
+     */
+    public function historicoConsulta($id): JsonResponse
+    {
+        try {
+            $consulta = Consulta::findOrFail($id);
+
+            $historico = $consulta->historico()
+                ->with('usuario:id,name')
+                ->paginate(50);
+
+            return response()->json([
+                'success' => true,
+                'data' => $historico->getCollection()->map(fn ($h) => [
+                    'id' => $h->id,
+                    'status_anterior' => $h->status_anterior,
+                    'status_novo' => $h->status_novo,
+                    'acao' => $h->acao,
+                    'motivo' => $h->motivo,
+                    'observacao' => $h->observacao,
+                    'usuario' => $h->usuario?->name,
+                    'ip' => $h->ip,
+                    'data' => $h->created_at?->format('Y-m-d H:i:s'),
+                ]),
+                'meta' => [
+                    'current_page' => $historico->currentPage(),
+                    'last_page' => $historico->lastPage(),
+                    'total' => $historico->total(),
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar histórico da consulta',
+            ], 404);
+        }
+    }
+
+    /**
+     * Indicadores rápidos do módulo de Consultas (dashboard).
+     */
+    public function dashboard(Request $request): JsonResponse
+    {
+        try {
+            $data = $request->input('data', now()->format('Y-m-d'));
+
+            $porStatusHoje = Consulta::where('data', $data)
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            $contagem = fn (string $status) => (int) ($porStatusHoje[$status] ?? 0);
+
+            $pendentes = $contagem(ConsultaStatus::PENDENTE);
+            $confirmadas = $contagem(ConsultaStatus::CONFIRMADA);
+            $emAtendimento = $contagem(ConsultaStatus::EM_ATENDIMENTO) + $contagem(ConsultaStatus::CHEGOU);
+            $realizadas = $contagem(ConsultaStatus::REALIZADA);
+            $canceladas = $contagem(ConsultaStatus::CANCELADA);
+            $transferidas = $contagem(ConsultaStatus::TRANSFERIDA);
+            $noShow = $contagem(ConsultaStatus::NO_SHOW);
+            $vencidasHoje = $contagem(ConsultaStatus::VENCIDA);
+
+            $totalHoje = array_sum([$pendentes, $confirmadas, $emAtendimento, $realizadas, $canceladas, $transferidas, $noShow, $vencidasHoje]);
+            $baseComparecimento = $realizadas + $noShow;
+
+            $vencidasTotal = Consulta::vencidas()->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'data' => $data,
+                    'hoje' => [
+                        'total' => $totalHoje,
+                        'pendentes' => $pendentes,
+                        'confirmadas' => $confirmadas,
+                        'em_atendimento' => $emAtendimento,
+                        'realizadas' => $realizadas,
+                        'canceladas' => $canceladas,
+                        'transferidas' => $transferidas,
+                        'no_show' => $noShow,
+                    ],
+                    'vencidas' => $vencidasTotal,
+                    'taxas' => [
+                        'comparecimento' => $baseComparecimento > 0 ? round(($realizadas / $baseComparecimento) * 100, 1) : null,
+                        'cancelamento' => $totalHoje > 0 ? round(($canceladas / $totalHoje) * 100, 1) : null,
+                        'faltas' => $totalHoje > 0 ? round(($noShow / $totalHoje) * 100, 1) : null,
+                    ],
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro ao carregar dashboard de consultas',
             ], 500);
         }
     }

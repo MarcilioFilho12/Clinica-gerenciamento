@@ -23,6 +23,19 @@ Canal de suporte interno: definir WhatsApp/e-mail do responsável técnico.
 2. Confirmar `/up` + login.  
 3. Só então investigar o commit ruim em branch.
 
+## Consultas não mudam para "Vencida" / "Não Compareceu" automaticamente
+
+**Sintoma:** relatório de Consultas Vencidas não atualiza sozinho; consultas passadas continuam `PENDENTE`.
+
+1. Confirmar se o Scheduler está rodando: no Railway, checar se existe o serviço *Cron Job* `php artisan schedule:run` (ver `DEPLOY_RAILWAY.md`). Sem isso, nada agenda automaticamente.
+2. Rodar manualmente para destravar o piloto:
+   ```bash
+   php artisan consultas:marcar-vencidas
+   php artisan consultas:marcar-no-show
+   ```
+3. Se a clínica foi criada/migrada recentemente, confirmar que as migrations do ciclo de vida (`status`, `consulta_historico`) existem no DB **dela** — rodar `php artisan clinic:migrate-all`.
+4. Nunca alterar `status` direto no banco: use os endpoints/service, para manter `consulta_historico` auditável.
+
 ## Dados apagados por usuário
 
 1. Soft delete: verificar `deleted_at` (users/consultas quando aplicável).  

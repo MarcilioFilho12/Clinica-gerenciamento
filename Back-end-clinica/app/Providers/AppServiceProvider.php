@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Consulta;
+use App\Observers\ConsultaObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -17,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Consulta::observe(ConsultaObserver::class);
+
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }

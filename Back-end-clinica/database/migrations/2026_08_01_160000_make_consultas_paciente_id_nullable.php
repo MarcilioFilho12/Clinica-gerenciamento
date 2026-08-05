@@ -13,7 +13,16 @@ return new class extends Migration
             $table->dropForeign(['paciente_id']);
         });
 
-        DB::statement('ALTER TABLE consultas MODIFY paciente_id BIGINT UNSIGNED NULL');
+        // `ALTER ... MODIFY` é sintaxe exclusiva do MySQL. Em SQLite (usado nos
+        // testes automatizados — ver phpunit.xml) o Schema Builder do Laravel 11+
+        // já sabe recriar a tabela para alterar a coluna, sem precisar de doctrine/dbal.
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE consultas MODIFY paciente_id BIGINT UNSIGNED NULL');
+        } else {
+            Schema::table('consultas', function (Blueprint $table) {
+                $table->unsignedBigInteger('paciente_id')->nullable()->change();
+            });
+        }
 
         Schema::table('consultas', function (Blueprint $table) {
             $table->foreign('paciente_id')
@@ -29,7 +38,13 @@ return new class extends Migration
             $table->dropForeign(['paciente_id']);
         });
 
-        DB::statement('ALTER TABLE consultas MODIFY paciente_id BIGINT UNSIGNED NOT NULL');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE consultas MODIFY paciente_id BIGINT UNSIGNED NOT NULL');
+        } else {
+            Schema::table('consultas', function (Blueprint $table) {
+                $table->unsignedBigInteger('paciente_id')->nullable(false)->change();
+            });
+        }
 
         Schema::table('consultas', function (Blueprint $table) {
             $table->foreign('paciente_id')

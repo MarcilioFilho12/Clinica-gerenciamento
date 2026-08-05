@@ -5,6 +5,10 @@ buildCommand = "composer install --no-dev --optimize-autoloader --no-interaction
 
 [deploy]
 # Painel Railway: Root Directory = Back-end-clinica
+# Roda antes do app novo entrar no ar (rede privada disponível). Se falhar,
+# o Railway cancela o deploy e mantém a versão anterior no ar — protege contra
+# subir código que espera coluna/tabela ainda não migrada em alguma clínica.
+preDeployCommand = "/bin/sh -c 'php artisan migrate --database=central --path=database/migrations/central --force && php artisan clinic:migrate-all'"
 startCommand = "php artisan marag:doctor --fix && php artisan serve --host=0.0.0.0 --port=$PORT"
 healthcheckPath = "/up"
 healthcheckTimeout = 30

@@ -25,6 +25,11 @@
 - [x] Enforce de permissões no menu (Fase 1)
 - [x] Remover mocks onde API existe / UI sem dados inventados
 - [ ] Dashboard e algumas telas ainda sem API (mostram vazio, não fake)
+- [x] Ciclo de vida completo de status da consulta (ADR-009): enum `status` + `consulta_historico` auditável, sem duplicar registros
+- [x] Transferência (nova consulta encadeada) e reagendamento (mesmo registro) com motivo obrigatório
+- [x] Jobs automáticos `consultas:marcar-vencidas` / `consultas:marcar-no-show` via Scheduler (`console.php`, 5 em 5 min)
+- [x] `GET /consultas/vencidas` (paginado/filtrável) e `GET /consultas/dashboard` (indicadores) server-side — `ConsultasVencidas.vue` migrado do cálculo client-side
+- [x] Comando `clinic:migrate-all` para aplicar migrations em todas as clínicas do multi-tenant
 
 ## Fase 3 — P2 Financeiro *(em andamento)*
 
