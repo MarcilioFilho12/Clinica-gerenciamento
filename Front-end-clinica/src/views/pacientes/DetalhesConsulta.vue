@@ -444,8 +444,8 @@ const editarConsulta = () => {
     return
   }
 
-  // TODO: Implementar navegação para edição
-  toast.info('Funcionalidade de edição será implementada')
+  // Reutiliza o modal de edição já existente na Agenda (mesma tela usada ao clicar num horário ocupado)
+  router.push({ path: '/agenda', query: { editar_consulta_id: consulta.value.id } })
 }
 
 // Encerrar consulta

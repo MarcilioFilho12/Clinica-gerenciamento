@@ -2731,6 +2731,14 @@ export default {
         this.$router.replace({ path: '/agenda', query: {} })
       }
     },
+    async abrirEdicaoViaQuery() {
+      const consultaId = this.$route.query?.editar_consulta_id
+      if (!consultaId) return
+
+      await this.editAppointmentFromHorario({ id: consultaId })
+
+      this.$router.replace({ path: '/agenda', query: {} })
+    },
   },
   watch: {
     selectedDate() {
@@ -2788,6 +2796,7 @@ export default {
     await this.carregarAgenda()
     await this.carregarParceiros()
     await this.retomarAgendamentoAposCadastro()
+    await this.abrirEdicaoViaQuery()
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.onAgendaExpandKeydown)
