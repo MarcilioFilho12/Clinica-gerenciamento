@@ -612,6 +612,13 @@ class ConsultaController extends Controller
 
             $camposHorarioAlterados = $dataAlterada || $horarioInicioAlterado || $horarioFimAlterado || $profissionalAlterado;
 
+            // Snapshot "antes" para auditoria (edição direta não passa pelo fluxo oficial de reagendamento/transferência,
+            // mas precisa deixar rastro em consulta_historico mesmo assim).
+            $dataAnteriorStr = $consulta->data->format('Y-m-d');
+            $horarioInicioAnteriorStr = $consulta->horario_inicio->format('H:i');
+            $horarioFimAnteriorStr = $consulta->horario_fim->format('H:i');
+            $profissionalAnteriorId = $consulta->user_id;
+
             try {
                 $consulta = DB::transaction(function () use (
                     $request,
@@ -620,6 +627,10 @@ class ConsultaController extends Controller
                     $data,
                     $prioridade,
                     $camposHorarioAlterados,
+                    $dataAnteriorStr,
+                    $horarioInicioAnteriorStr,
+                    $horarioFimAnteriorStr,
+                    $profissionalAnteriorId,
                     $id
                 ) {
                     // Lock da linha atual evita corrida em update concorrente
@@ -685,6 +696,33 @@ class ConsultaController extends Controller
                     }
 
                     $consulta->update($dados);
+
+                    if ($camposHorarioAlterados) {
+                        $observacao = sprintf(
+                            'Edição direta via modal (fora do fluxo de reagendamento/transferência). De %s %s-%s (profissional #%d) para %s %s-%s (profissional #%d).',
+                            $dataAnteriorStr,
+                            $horarioInicioAnteriorStr,
+                            $horarioFimAnteriorStr,
+                            $profissionalAnteriorId,
+                            $consulta->data->format('Y-m-d'),
+                            $consulta->horario_inicio->format('H:i'),
+                            $consulta->horario_fim->format('H:i'),
+                            $consulta->user_id
+                        );
+
+                        // Não é uma transição de status real (status_anterior === status_novo):
+                        // serve só para deixar rastro auditável de quem mudou data/horário/profissional e quando.
+                        $statusAtual = $consulta->status ?? ConsultaStatus::PENDENTE;
+                        $this->consultaStatusService->registrarHistorico(
+                            $consulta,
+                            $statusAtual,
+                            $statusAtual,
+                            $request,
+                            'editar_horario',
+                            null,
+                            $observacao
+                        );
+                    }
 
                     return $consulta;
                 });
